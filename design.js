@@ -6,6 +6,7 @@ var num=function(id){var e=byId(id);return e?Number(e.value||0):0;};
 var fmt=function(v,d){d=d===undefined?1:d;return Number.isFinite(Number(v))?Number(v).toFixed(d):'—';};
 var clamp=function(v,a,b){return Math.min(b,Math.max(a,v));};
 var copy=function(v){return JSON.parse(JSON.stringify(v));};
+var osmoticBar=function(tds,temp){return Math.max(0,0.00077*Number(tds||0)*((Number(temp||25)+273.15)/298.15));};
 
 var activeTemplate='px';
 var last=null;
@@ -362,12 +363,25 @@ function check(level,title,text){
 
 function calculate(){
   if(!byId('dCapacity'))return;
-  var capacity=Math.max(0,num('dCapacity')),permeate=capacity/24,recovery=clamp(num('dRecovery')/100,.01,.95);
+  var capacity=Math.max(0,num('dCapacity'));
+  var operatingHours=clamp(num('dOperatingHours')||24,1,24);
+  var dutyTrains=Math.max(1,Math.round(num('dDutyTrains')||1));
+  var plantPermeate=capacity/operatingHours;
+  var permeate=plantPermeate/dutyTrains;
+  var recovery=clamp(num('dRecovery')/100,.01,.95);
   var feedTds=Math.max(0,num('dFeedTds')),productTds=Math.max(0,num('dProductTds')),temp=num('dTemp');
   var roP=Math.max(0,num('dRoPressure')),feedP=Math.max(0,num('dFeedPressure')),rejectP=Math.max(0,num('dRejectPressure'));
+  var feedLineLoss=Math.max(0,num('dFeedLineLoss')),permBack=Math.max(0,num('dPermBackPressure'));
   var vessels=Math.max(1,Math.round(num('dVessels'))),epv=Math.max(1,Math.round(num('dElementsPerVessel'))),areaEach=Math.max(1,num('dElementArea'));
   var elements=vessels*epv,area=elements*areaEach,hppEff=clamp(num('dHppEff')/100,.01,1),cpEff=clamp(num('dCpEff')/100,.01,1);
+  var motorEff=clamp(num('dMotorEff')/100,.01,1),vfdEff=clamp(num('dVfdEff')/100,.01,1);
   var pxEff=clamp(num('dPxEff')/100,.01,1),fraction=clamp(num('dPxFraction')/100,0,.98);
+  var passes=Math.max(1,Math.round(num('dPasses')||1)),stages=Math.max(1,Math.round(num('dStages')||1));
+  var fluxLimit=Math.max(0,num('dFluxLimit'));
+  var ph=num('dPh'),sdi=num('dSdi'),turbidity=num('dTurbidity'),conductivity=num('dConductivity');
+  var boron=num('dBoron'),productBoron=num('dProductBoron');
+  var feedSource=byId('dFeedSource')?byId('dFeedSource').value:'';
+  var ca=num('dCa'),mg=num('dMg'),so4=num('dSo4'),hco3=num('dHco3'),silica=num('dSilica'),iron=num('dIron');
   var freshFeed=permeate/recovery,feed=freshFeed,reject=Math.max(0,freshFeed-permeate),moduleFeed=feed;
   var pxHpIn=0,pxLpIn=0,pxHpOut=0,pxLpOut=0,directReject=reject,hppFlow=feed,cpFlow=0,pxOutP=feedP;
   var recycleFlow=0,membraneConcentrate=reject,mixedTds=feedTds,recycleRejectTds=reject>0?(feed*feedTds-permeate*productTds)/reject:0;
@@ -385,15 +399,28 @@ function calculate(){
   }
 
   var rejectTds=reject>0?(freshFeed*feedTds-permeate*productTds)/reject:0;
-  var hppPower=hppFlow*Math.max(0,roP-feedP)/(36*hppEff),cpPower=cpFlow*Math.max(0,roP-pxOutP)/(36*cpEff);
-  var totalPower=hppPower+cpPower,sec=permeate>0?totalPower/permeate:0,flux=area>0?permeate*1000/area:0,rejectionReq=feedTds>0?(1-productTds/feedTds)*100:0;
+  var pumpDischargeP=roP+feedLineLoss;
+  var hppHydraulic=hppFlow*Math.max(0,pumpDischargeP-feedP)/(36*hppEff);
+  var cpHydraulic=cpFlow*Math.max(0,pumpDischargeP-pxOutP)/(36*cpEff);
+  var hppPower=hppHydraulic/(motorEff*vfdEff),cpPower=cpHydraulic/(motorEff*vfdEff);
+  var totalPower=hppPower+cpPower,totalPlantPower=totalPower*dutyTrains;
+  var sec=plantPermeate>0?totalPlantPower/plantPermeate:0;
+  var flux=area>0?permeate*1000/area:0,rejectionReq=feedTds>0?(1-productTds/feedTds)*100:0;
+  var feedOsmotic=osmoticBar(feedTds,temp),rejectOsmotic=osmoticBar(rejectTds,temp),productOsmotic=osmoticBar(productTds,temp);
+  var avgHydraulic=((roP+rejectP)/2)-permBack;
+  var avgOsmotic=((feedOsmotic+rejectOsmotic)/2)-productOsmotic;
+  var ndp=avgHydraulic-avgOsmotic,roDp=Math.max(0,roP-rejectP);
 
   last={capacity:capacity,permeate:permeate,recovery:recovery,freshFeed:freshFeed,feed:feed,reject:reject,moduleFeed:moduleFeed,
     feedTds:feedTds,productTds:productTds,rejectTds:rejectTds,temp:temp,roP:roP,feedP:feedP,rejectP:rejectP,
     vessels:vessels,epv:epv,elements:elements,area:area,flux:flux,rejectionReq:rejectionReq,
     pxHpIn:pxHpIn,pxLpIn:pxLpIn,pxHpOut:pxHpOut,pxLpOut:pxLpOut,directReject:directReject,hppFlow:hppFlow,cpFlow:cpFlow,pxOutP:pxOutP,
-    hppPower:hppPower,cpPower:cpPower,totalPower:totalPower,sec:sec,recycleFlow:recycleFlow,membraneConcentrate:membraneConcentrate,
-    mixedTds:mixedTds,recycleRejectTds:recycleRejectTds,fraction:fraction};
+    hppPower:hppPower,cpPower:cpPower,totalPower:totalPower,totalPlantPower:totalPlantPower,sec:sec,recycleFlow:recycleFlow,membraneConcentrate:membraneConcentrate,
+    mixedTds:mixedTds,recycleRejectTds:recycleRejectTds,fraction:fraction,
+    operatingHours:operatingHours,dutyTrains:dutyTrains,plantPermeate:plantPermeate,passes:passes,stages:stages,fluxLimit:fluxLimit,
+    feedLineLoss:feedLineLoss,permBack:permBack,pumpDischargeP:pumpDischargeP,feedOsmotic:feedOsmotic,rejectOsmotic:rejectOsmotic,
+    productOsmotic:productOsmotic,avgOsmotic:avgOsmotic,ndp:ndp,roDp:roDp,ph:ph,sdi:sdi,turbidity:turbidity,conductivity:conductivity,
+    boron:boron,productBoron:productBoron,feedSource:feedSource,ca:ca,mg:mg,so4:so4,hco3:hco3,silica:silica,iron:iron};
 
   renderDiagram();
   renderResults();
@@ -401,7 +428,7 @@ function calculate(){
 
 function renderResults(){
   var t=templates[activeTemplate],vals=streamValues();
-  var head='<thead><tr><th>Stream</th>'+t.edges.map(function(e){return '<th>'+e.name+'</th>';}).join('')+'</tr></thead>';
+  var head='<thead><tr><th>Stream · per active train</th>'+t.edges.map(function(e){return '<th>'+e.name+'</th>';}).join('')+'</tr></thead>';
   function row(name,key,d){
     return '<tr><td>'+name+'</td>'+t.edges.map(function(e){
       var v=vals[e.id]||{},value=key==='temp'?last.temp:v[key];
@@ -425,16 +452,41 @@ function renderResults(){
   else checks.push(check('good','Product-quality target ready for projection','Required overall rejection is '+fmt(last.rejectionReq,2)+'%.'));
   if(activeTemplate==='px')checks.push(check(Math.abs(last.moduleFeed-last.freshFeed)<.05?'good':'bad','PX/HPP flow balance','HPP + CP = '+fmt(last.moduleFeed,1)+' m³/h versus feed '+fmt(last.freshFeed,1)+' m³/h.'));
   if(activeTemplate==='recycle')checks.push(check('warn','Recirculation needs full chemistry model','Recycle increases module feed salinity and scaling potential. Full ionic mass balance is required before final design.'));
-  checks.push(check('warn','Manufacturer projection still required','This canvas performs hydraulic screening. Final element flux, ion passage, pressure drop, scaling and boron/product quality need vendor-specific projection data.'));
+
+  if(last.fluxLimit>0&&last.flux>last.fluxLimit)checks.push(check('warn','Flux exceeds your design limit','Average flux is '+fmt(last.flux,1)+' LMH versus the entered limit of '+fmt(last.fluxLimit,1)+' LMH. Increase membrane area or reduce per-train production.'));
+  else if(last.fluxLimit>0)checks.push(check('good','Flux is within the entered design limit','Average flux is '+fmt(last.flux,1)+' LMH versus a '+fmt(last.fluxLimit,1)+' LMH limit.'));
+
+  if(last.sdi>5)checks.push(check('bad','High SDI15 for RO feed','SDI15 is '+fmt(last.sdi,1)+'. Pretreatment performance should be improved before accepting the membrane design.'));
+  else if(last.sdi>3)checks.push(check('warn','SDI15 needs attention','SDI15 is '+fmt(last.sdi,1)+'. Check the selected membrane guideline and fouling allowance.'));
+  else checks.push(check('good','SDI15 is suitable for preliminary screening','Entered SDI15 is '+fmt(last.sdi,1)+'.'));
+
+  if(last.turbidity>1)checks.push(check('warn','Feed turbidity is high for a final RO feed','Entered turbidity is '+fmt(last.turbidity,1)+' NTU. Confirm particle filtration and pretreatment performance.'));
+
+  if(last.ndp<=0)checks.push(check('bad','Insufficient preliminary net driving pressure','The approximate net driving pressure is '+fmt(last.ndp,1)+' bar. Review feed pressure, concentrate pressure, salinity and permeate backpressure.'));
+  else checks.push(check('good','Preliminary net driving pressure is positive','Approximate NDP is '+fmt(last.ndp,1)+' bar. Final pressure must come from the membrane projection.'));
+
+  if(last.passes>1)checks.push(check('warn','Second pass selected','The input is captured, but the current process canvas calculates the first pass only. A dedicated second-pass membrane projection will be added before treating this as a final two-pass design.'));
+  if(last.productBoron>0&&last.boron>0&&last.productBoron<last.boron&&last.passes===1&&last.feedTds>20000)checks.push(check('warn','Boron target requires membrane-specific verification','Feed boron is '+fmt(last.boron,2)+' mg/L and target product boron is '+fmt(last.productBoron,2)+' mg/L. One-pass SWRO boron performance is temperature, pH and membrane dependent.'));
+
+  if(last.feedSource==='open_sea')checks.push(check('warn','Open seawater intake selected','Confirm robust pretreatment for suspended solids, biological loading and seasonal changes.'));
+  if(last.ca<=0||last.mg<=0||last.so4<=0||last.hco3<=0)checks.push(check('warn','Water analysis is incomplete','Calcium, magnesium, sulfate and bicarbonate should be entered for scaling assessment.'));
+  else checks.push(check('good','Core scaling ions are captured','Calcium, magnesium, sulfate and bicarbonate are available for the detailed chemistry model.'));
+
+  checks.push(check('warn','Manufacturer projection still required','This canvas performs hydraulic and design screening. Final element flux, ion passage, pressure drop, scaling, boron and product quality need vendor-specific projection data.'));
   byId('dDesignChecks').innerHTML=checks.join('');
 
   byId('dEnergySummary').innerHTML=
-    summaryRow('HPP flow',fmt(last.hppFlow,1),'m³/h')+
-    summaryRow('HPP power',fmt(last.hppPower,1),'kW')+
-    summaryRow('CP flow',fmt(last.cpFlow,1),'m³/h')+
-    summaryRow('CP power',fmt(last.cpPower,1),'kW')+
-    summaryRow('Total RO power',fmt(last.totalPower,1),'kW')+
-    summaryRow('Specific energy',fmt(last.sec,2),'kWh/m³');
+    summaryRow('Plant product rate',fmt(last.plantPermeate,1),'m³/h')+
+    summaryRow('Duty trains',fmt(last.dutyTrains,0),'ea')+
+    summaryRow('Product / train',fmt(last.permeate,1),'m³/h')+
+    summaryRow('HPP flow / train',fmt(last.hppFlow,1),'m³/h')+
+    summaryRow('HPP electrical power',fmt(last.hppPower,1),'kW/train')+
+    summaryRow('CP electrical power',fmt(last.cpPower,1),'kW/train')+
+    summaryRow('Plant RO power',fmt(last.totalPlantPower,1),'kW')+
+    summaryRow('Specific energy',fmt(last.sec,2),'kWh/m³')+
+    summaryRow('RO pressure drop',fmt(last.roDp,1),'bar')+
+    summaryRow('Approx. feed osmotic pressure',fmt(last.feedOsmotic,1),'bar')+
+    summaryRow('Approx. NDP',fmt(last.ndp,1),'bar');
 }
 
 function setTemplate(name){
@@ -446,7 +498,9 @@ function setTemplate(name){
 
 [
   'dCapacity','dRecovery','dFeedTds','dTemp','dRoPressure','dProductTds','dVessels','dElementsPerVessel',
-  'dElementArea','dWaterType','dPxFraction','dPxEff','dRejectPressure','dFeedPressure','dHppEff','dCpEff'
+  'dElementArea','dWaterType','dPxFraction','dPxEff','dRejectPressure','dFeedPressure','dHppEff','dCpEff',
+  'dFeedSource','dDutyTrains','dOperatingHours','dPasses','dStages','dFluxLimit','dPh','dSdi','dTurbidity','dConductivity',
+  'dBoron','dProductBoron','dFeedLineLoss','dPermBackPressure','dMotorEff','dVfdEff','dMembraneModel','dCa','dMg','dSo4','dHco3','dSilica','dIron'
 ].forEach(function(id){
   var e=byId(id);
   if(e){e.addEventListener('input',calculate);e.addEventListener('change',calculate);}
