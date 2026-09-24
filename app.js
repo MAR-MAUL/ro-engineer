@@ -436,7 +436,7 @@ function scanAlarms(){
     {id:"pxDp",title:"PX ΔP",value:pxdp+" bar",level:pxdp>=pxDpAlarm?"bad":"good",text:pxdp>=pxDpAlarm?"At/above "+pxDpAlarm+" bar reference. Check pressure instruments, PX flow ratio and valve lineup.":"Below "+pxDpAlarm+" bar reference."},
     {id:"hppSpeed",title:"HPP speed tracking",value:fmt(hAct-hRef,1)+" Hz",level:Math.abs(hRef-hAct)>speedDev?"warn":"good",text:"Reference "+fmt(hRef,1)+" Hz / actual "+fmt(hAct,1)+" Hz."},
     {id:"cpSpeed",title:"CP speed tracking",value:fmt(cAct-cRef,1)+" Hz",level:Math.abs(cRef-cAct)>speedDev?"warn":"good",text:"Reference "+fmt(cRef,1)+" Hz / actual "+fmt(cAct,1)+" Hz."},
-    {id:"conductivity",title:"Product conductivity",value:cond+" µS/cm",level:"warn",text:"Use trend against the stable borewell-feed baseline. Verify the analyzer first, then pressure/recovery/temperature and salt rejection."}
+    {id:"conductivity",title:"Product conductivity",value:cond+" µS/cm",level:"good",text:"Trend against the stable borewell-feed baseline. A confirmed rise should trigger analyzer verification first, then pressure/recovery/temperature and salt rejection checks."}
   ];
   lastAlarmScan=out;
 
