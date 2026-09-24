@@ -122,9 +122,41 @@ window.RO_TROUBLESHOOTING = {
     },
     product_cond_rising:{
       title:"Product conductivity rising / high",
-      likely:"Measurement issue, changed RO pressure/recovery/temperature, declining salt rejection or membrane / vessel integrity issue.",
-      checks:["Verify product conductivity with an independent calibrated measurement.","Because borewell feed conductivity is normally stable, first compare RO pressure, recovery and temperature against normal operation.","Calculate salt rejection from valid feed and permeate quality data.","Compare vessels / trains to determine whether the increase is localized.","Check membrane and pressure-vessel integrity if the rise is confirmed and localized."],
-      actions:["Correct the measurement issue if readings disagree.","Restore abnormal pressure/recovery conditions if they caused the change.","Investigate membrane / vessel integrity only after operating conditions and instruments are verified."]
+      prompt:"Which observation best matches the conductivity increase?",
+      branchOptions:[
+        ["cond_unverified","Conductivity rise has not been confirmed locally"],
+        ["operating_change","RO pressure, recovery or temperature changed"],
+        ["one_vessel","One vessel / train is worse than the others"],
+        ["all_vessels","All vessels / product header are rising together"],
+        ["feed_changed","Feed conductivity also changed"]
+      ],
+      branches:{
+        cond_unverified:{
+          likely:"Product conductivity measurement / analyzer issue must be excluded first.",
+          checks:["Verify product conductivity with an independent calibrated handheld or laboratory measurement.","Check analyzer sample flow, sample point flushing and temperature compensation.","Check transmitter scaling and SCADA engineering units.","Compare the analyzer trend with another product-quality measurement if available."],
+          actions:["Correct the sample, analyzer or scaling issue if the independent reading does not confirm the rise.","Do not open vessels or replace membranes from an unverified conductivity signal."]
+        },
+        operating_change:{
+          likely:"The product-quality change may be driven by the RO operating point rather than membrane damage.",
+          checks:["Compare module inlet pressure, recovery and temperature with the normal operating baseline.","Calculate salt rejection from valid feed and permeate conductivity / TDS.","Check whether the change coincided with HPP/CP speed or reject-control changes.","Confirm feed conductivity remained stable as expected for the borewell source."],
+          actions:["Restore the normal hydraulic operating point if the change explains the conductivity increase.","Reassess normalized product quality before assigning a membrane fault."]
+        },
+        one_vessel:{
+          likely:"Localized vessel integrity, interconnector / O-ring or membrane-element issue.",
+          checks:["Confirm the affected vessel with individual vessel permeate conductivity where available.","Verify the sample point and instrument before isolation work.","Compare vessel inlet/reject pressure and flow for abnormal distribution.","Inspect interconnectors, O-rings, end adapters and membrane integrity in the confirmed vessel."],
+          actions:["Repair the confirmed seal / connector issue or replace the affected element only after the location is verified.","Re-test vessel product quality after corrective work."]
+        },
+        all_vessels:{
+          likely:"Common operating-condition, analyzer, product-header or system-wide membrane-performance issue.",
+          checks:["Verify the common product conductivity measurement independently.","Because borewell feed conductivity is normally stable, compare pressure, recovery and temperature first.","Review normalized salt passage / rejection and membrane age or recent cleaning history.","Check whether the rise began after a common event such as shutdown, flushing, chemical exposure or control change."],
+          actions:["Correct the common measurement or operating-condition issue first.","If the rise remains confirmed and normalized salt passage has increased, proceed with membrane-performance / integrity assessment."]
+        },
+        feed_changed:{
+          likely:"Feed-water quality change is contributing to the product conductivity change.",
+          checks:["Confirm feed conductivity/TDS with an independent measurement.","Compare feed and product changes on the same time basis.","Recalculate salt rejection rather than judging product conductivity alone.","Review borewell / source changes or blending that could explain the feed shift."],
+          actions:["Use normalized salt rejection to decide whether RO performance also deteriorated.","Address the feed-water change separately from any membrane integrity issue."]
+        }
+      }
     },
     salt_rejection_decline:{
       title:"Salt rejection declining",
