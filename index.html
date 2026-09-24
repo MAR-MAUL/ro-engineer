@@ -215,74 +215,226 @@
   </section>
 
   <section id="view-troubleshooting" class="view">
-    <div class="page-head"><div><h1>Troubleshooting</h1><p>Selectable, deterministic diagnosis. No free-text fault description is required.</p></div><span id="alarmSummaryBadge" class="badge ok">No active threshold alarms</span></div>
+    <div class="page-head trouble-page-head">
+      <div>
+        <h1>Troubleshooting Center</h1>
+        <p>Symptom-first diagnosis with flow-balance verification before assigning equipment faults.</p>
+      </div>
+      <div class="trouble-head-status">
+        <span class="ts-live-dot"></span>
+        <span id="alarmSummaryBadge" class="ts-status-pill good">System checks ready</span>
+      </div>
+    </div>
 
-    <div class="subtabs">
-      <button class="active" data-trouble-tab="guided">Guided Diagnosis</button>
-      <button data-trouble-tab="balance">Flow Balancing</button>
-      <button data-trouble-tab="alarms">Abnormal Parameter Detection</button>
+    <div class="ts-tabs">
+      <button class="active" data-trouble-tab="guided">
+        <span class="ts-tab-icon">✚</span>
+        <span><b>Guided Troubleshooting</b><small>Symptom → verification → cause → action</small></span>
+      </button>
+      <button data-trouble-tab="balance">
+        <span class="ts-tab-icon">⚖</span>
+        <span><b>Flow Balancing</b><small>Validate measured streams and PX balance</small></span>
+      </button>
     </div>
 
     <div id="trouble-guided" class="trouble-pane active">
-      <div class="trouble-layout">
-        <article class="module-card">
-          <h2>1. Select Area</h2>
-          <div id="troubleCategories" class="category-grid"></div>
-          <h2>2. Select Symptom</h2>
-          <select id="troubleSymptom" class="full-select"></select>
-          <div id="trendBlock" class="trend-block hidden">
-            <h2>3. Select Pre-trip Trend</h2>
-            <select id="troubleBranch" class="full-select"></select>
+      <div class="ts-guided-grid">
+        <aside class="ts-card ts-symptom-panel">
+          <div class="ts-card-head">
+            <div><span class="ts-kicker">STEP 1</span><h2>Select Symptom</h2></div>
+            <span class="ts-count" id="symptomCount">8</span>
           </div>
-          <button class="tool-btn primary full-btn" id="runDiagnostic">Run Diagnostic</button>
-        </article>
-        <article class="module-card diagnostic-output">
-          <div class="summary-head"><h2 id="diagnosticTitle">Guided Diagnosis</h2><span class="badge calc">Deterministic</span></div>
-          <div id="diagnosticResult" class="diagnostic-stack"><div class="empty-state">Choose an area and symptom to generate verification steps, likely causes and corrective actions.</div></div>
-        </article>
+          <div id="troubleSymptoms" class="ts-symptom-list"></div>
+        </aside>
+
+        <section class="ts-card ts-diagnostic-panel">
+          <div class="ts-card-head ts-diagnostic-head">
+            <div>
+              <span class="ts-kicker">GUIDED DIAGNOSIS</span>
+              <h2 id="diagnosticTitle">Module inlet pressure rising / trip</h2>
+            </div>
+            <span id="diagnosticMode" class="ts-status-pill info">Awaiting selection</span>
+          </div>
+
+          <div class="ts-stepper" aria-label="Diagnostic sequence">
+            <div class="ts-step active"><i>1</i><span>Confirm Symptom</span></div>
+            <div class="ts-step"><i>2</i><span>Validate Reading</span></div>
+            <div class="ts-step"><i>3</i><span>Compare Trend</span></div>
+            <div class="ts-step"><i>4</i><span>Isolate Cause</span></div>
+            <div class="ts-step"><i>5</i><span>Action</span></div>
+          </div>
+
+          <div class="ts-question-card">
+            <div class="ts-question-icon">?</div>
+            <div class="ts-question-body">
+              <span class="ts-kicker">DIAGNOSTIC QUESTION</span>
+              <h3 id="troubleQuestion">What happened to RO differential pressure before the module inlet pressure rose?</h3>
+              <div id="troubleBranchButtons" class="ts-option-grid"></div>
+            </div>
+          </div>
+
+          <div id="diagnosticResult" class="ts-result-grid">
+            <article class="ts-result-card muted">
+              <div class="ts-result-icon">◎</div>
+              <span>LIKELY DIRECTION</span>
+              <h3>Select an observation</h3>
+              <p>The diagnostic path will update using the selected plant trend.</p>
+            </article>
+            <article class="ts-result-card muted">
+              <div class="ts-result-icon">✓</div>
+              <span>VERIFY NEXT</span>
+              <h3>Evidence first</h3>
+              <p>Measurements and flow balance are checked before an equipment fault is assigned.</p>
+            </article>
+            <article class="ts-result-card muted">
+              <div class="ts-result-icon">→</div>
+              <span>CORRECTIVE ACTION</span>
+              <h3>Action after confirmation</h3>
+              <p>No pump-speed or valve changes are recommended until the cause is isolated.</p>
+            </article>
+          </div>
+        </section>
+
+        <aside class="ts-card ts-parameter-panel">
+          <div class="ts-card-head">
+            <div><span class="ts-kicker">OPERATING SNAPSHOT</span><h2>Parameters</h2></div>
+            <button type="button" class="ts-mini-btn" id="scanAlarms">Analyze</button>
+          </div>
+
+          <div class="ts-param-grid">
+            <label class="ts-param">
+              <span>Module Inlet Pressure</span>
+              <div><input id="alarmModuleP" type="number" value="56.5" step="0.1"><b>bar</b></div>
+              <small id="stateModuleP" class="normal">NORMAL</small>
+            </label>
+            <label class="ts-param">
+              <span>RO Module ΔP</span>
+              <div><input id="alarmModuleDp" type="number" value="1.5" step="0.1"><b>bar</b></div>
+              <small id="stateModuleDp" class="normal">NORMAL</small>
+            </label>
+            <label class="ts-param">
+              <span>PX ΔP</span>
+              <div><input id="alarmPxDp" type="number" value="1.0" step="0.1"><b>bar</b></div>
+              <small id="statePxDp" class="normal">NORMAL</small>
+            </label>
+            <label class="ts-param">
+              <span>Product Conductivity</span>
+              <div><input id="alarmProductCond" type="number" value="80" step="1"><b>µS/cm</b></div>
+              <small class="review">TREND</small>
+            </label>
+          </div>
+
+          <div class="ts-speed-section">
+            <div class="ts-section-label">VFD REFERENCE / ACTUAL</div>
+            <div class="ts-speed-row">
+              <span>HPP</span>
+              <div><input id="alarmHppRef" type="number" value="50" step="0.1"><small>REF Hz</small></div>
+              <strong>→</strong>
+              <div><input id="alarmHppAct" type="number" value="50" step="0.1"><small>ACT Hz</small></div>
+              <i id="hppSpeedState" class="ts-state-dot good"></i>
+            </div>
+            <div class="ts-speed-row">
+              <span>CP</span>
+              <div><input id="alarmCpRef" type="number" value="50" step="0.1"><small>REF Hz</small></div>
+              <strong>→</strong>
+              <div><input id="alarmCpAct" type="number" value="50" step="0.1"><small>ACT Hz</small></div>
+              <i id="cpSpeedState" class="ts-state-dot good"></i>
+            </div>
+          </div>
+
+          <div class="ts-thresholds">
+            <div><span>Module Pressure Alarm</span><b id="displayModulePAlarm">60 bar</b></div>
+            <div><span>Module ΔP Alarm</span><b id="displayModuleDpAlarm">3 bar</b></div>
+            <div><span>PX ΔP Reference</span><b id="displayPxDpAlarm">2 bar</b></div>
+          </div>
+
+          <div id="alarmResults" class="ts-alarm-summary"></div>
+        </aside>
       </div>
     </div>
 
     <div id="trouble-balance" class="trouble-pane">
-      <div class="page-note">Enter measured flows. The checks below separate measurement / bypass problems from a genuine PX or hydraulic fault before equipment is blamed.</div>
-      <div class="balance-diagnostic-grid">
-        <article class="module-card">
-          <h2>Measured Flows</h2>
-          <div class="form-grid compact">
-            <label><span>Total Feed</span><div><input id="mFeed" type="number" value="188"><b>m³/h</b></div></label>
-            <label><span>HPP Branch</span><div><input id="mHpp" type="number" value="78"><b>m³/h</b></div></label>
-            <label><span>PX LP IN</span><div><input id="mPxLpIn" type="number" value="110"><b>m³/h</b></div></label>
-            <label><span>RO Feed Header</span><div><input id="mRoFeed" type="number" value="188"><b>m³/h</b></div></label>
-            <label><span>PX HP OUT</span><div><input id="mPxHpOut" type="number" value="110"><b>m³/h</b></div></label>
-            <label><span>Permeate</span><div><input id="mPerm" type="number" value="50"><b>m³/h</b></div></label>
-            <label><span>PX HP IN</span><div><input id="mPxHpIn" type="number" value="110"><b>m³/h</b></div></label>
-            <label><span>PX LP OUT</span><div><input id="mPxLpOut" type="number" value="110"><b>m³/h</b></div></label>
-            <label><span>Direct Vessel Reject</span><div><input id="mDirectReject" type="number" value="28"><b>m³/h</b></div></label>
-            <label><span>Balance Tolerance</span><div><input id="mTolerance" type="number" value="3" min="0.1" step="0.1"><b>%</b></div></label>
-          </div>
-          <button class="tool-btn primary full-btn" id="runFlowBalance">Check Measured Balance</button>
-        </article>
-        <article class="module-card"><h2>Balance Checks</h2><div id="measuredBalanceResults" class="diagnostic-stack"></div></article>
+      <div class="fb-topbar">
+        <div>
+          <span class="ts-kicker">MEASURED FLOW CHECK</span>
+          <h2>RO / PX Flow Balance</h2>
+          <p>Validate the measurement chain and unaccounted flows before diagnosing the PX, HPP or CP.</p>
+        </div>
+        <div id="flowBalanceOverall" class="fb-overall good"><span>✓</span><div><b>BALANCED</b><small>Within tolerance</small></div></div>
       </div>
-    </div>
 
-    <div id="trouble-alarms" class="trouble-pane">
-      <div class="alarm-grid">
-        <article class="module-card">
-          <h2>Current / Observed Parameters</h2>
-          <div class="form-grid compact">
-            <label><span>Module Inlet Pressure</span><div><input id="alarmModuleP" type="number" value="56.5"><b>bar</b></div></label>
-            <label><span>RO Module DP</span><div><input id="alarmModuleDp" type="number" value="1.5"><b>bar</b></div></label>
-            <label><span>PX DP</span><div><input id="alarmPxDp" type="number" value="1.0"><b>bar</b></div></label>
-            <label><span>Product Conductivity</span><div><input id="alarmProductCond" type="number" value="80"><b>µS/cm</b></div></label>
-            <label><span>HPP Ref.</span><div><input id="alarmHppRef" type="number" value="50"><b>Hz</b></div></label>
-            <label><span>HPP Actual</span><div><input id="alarmHppAct" type="number" value="50"><b>Hz</b></div></label>
-            <label><span>CP Ref.</span><div><input id="alarmCpRef" type="number" value="50"><b>Hz</b></div></label>
-            <label><span>CP Actual</span><div><input id="alarmCpAct" type="number" value="50"><b>Hz</b></div></label>
+      <div class="fb-grid">
+        <section class="ts-card fb-diagram-card">
+          <div class="ts-card-head"><div><span class="ts-kicker">PROCESS BALANCE</span><h2>Measured Streams</h2></div><span class="ts-status-pill info" id="balanceToleranceLabel">±3.0% tolerance</span></div>
+
+          <svg class="fb-svg" viewBox="0 0 980 430" aria-label="Flow balancing diagram">
+            <defs>
+              <marker id="fbBlueArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#168dff"/></marker>
+              <marker id="fbOrangeArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff922e"/></marker>
+              <marker id="fbCyanArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#5fe0ff"/></marker>
+            </defs>
+
+            <text class="fb-label" x="18" y="88">Pretreatment</text>
+            <path class="fb-feed" d="M20 110 H145" marker-end="url(#fbBlueArrow)"/>
+            <rect class="fb-equip" x="145" y="78" width="88" height="64" rx="12"/>
+            <text class="fb-equip-text" x="189" y="105" text-anchor="middle">BAG</text><text class="fb-equip-text small" x="189" y="124" text-anchor="middle">FILTER</text>
+
+            <path class="fb-feed" d="M233 110 H305 V60 H385" marker-end="url(#fbBlueArrow)"/>
+            <path class="fb-feed" d="M305 110 V250 H385" marker-end="url(#fbBlueArrow)"/>
+            <circle class="fb-pump" cx="420" cy="60" r="34"/><text class="fb-equip-text" x="420" y="66" text-anchor="middle">HPP</text>
+            <rect class="fb-px" x="385" y="220" width="160" height="60" rx="30"/><text class="fb-equip-text" x="465" y="256" text-anchor="middle">PX</text>
+            <path class="fb-feed" d="M545 250 H640" marker-end="url(#fbBlueArrow)"/>
+            <circle class="fb-pump" cx="675" cy="250" r="34"/><text class="fb-equip-text" x="675" y="256" text-anchor="middle">CP</text>
+            <path class="fb-feed" d="M454 60 H710 V125 H770" marker-end="url(#fbBlueArrow)"/>
+            <path class="fb-feed" d="M709 250 H735 V125 H770" marker-end="url(#fbBlueArrow)"/>
+
+            <rect class="fb-ro" x="770" y="82" width="155" height="125" rx="12"/><text class="fb-equip-text" x="847" y="110" text-anchor="middle">RO TRAIN</text>
+            <rect class="fb-vessel" x="795" y="127" width="105" height="18" rx="9"/><rect class="fb-vessel" x="795" y="154" width="105" height="18" rx="9"/>
+
+            <path class="fb-perm" d="M925 126 H962" marker-end="url(#fbCyanArrow)"/><text class="fb-label cyan" x="900" y="105">Permeate</text>
+            <path class="fb-reject" d="M852 207 V330 H545 V280" marker-end="url(#fbOrangeArrow)"/>
+            <path class="fb-reject" d="M465 280 V370 H950" marker-end="url(#fbOrangeArrow)"/>
+            <path class="fb-reject" d="M890 207 V370 H950" marker-end="url(#fbOrangeArrow)"/>
+            <text class="fb-label orange" x="735" y="320">RO Reject → PX HP IN</text><text class="fb-label orange" x="805" y="395">Reject / Drain</text>
+
+            <g class="fb-value" transform="translate(40 125)"><rect width="110" height="38" rx="7"/><text x="10" y="25">Feed</text><text id="fbFeed" x="100" y="25" text-anchor="end">188</text></g>
+            <g class="fb-value" transform="translate(295 16)"><rect width="110" height="38" rx="7"/><text x="10" y="25">HPP</text><text id="fbHpp" x="100" y="25" text-anchor="end">78</text></g>
+            <g class="fb-value" transform="translate(270 264)"><rect width="110" height="38" rx="7"/><text x="10" y="25">PX LP IN</text><text id="fbPxLpIn" x="100" y="25" text-anchor="end">110</text></g>
+            <g class="fb-value" transform="translate(555 264)"><rect width="110" height="38" rx="7"/><text x="10" y="25">PX HP OUT</text><text id="fbPxHpOut" x="100" y="25" text-anchor="end">110</text></g>
+            <g class="fb-value" transform="translate(700 74)"><rect width="110" height="38" rx="7"/><text x="10" y="25">RO Feed</text><text id="fbRoFeed" x="100" y="25" text-anchor="end">188</text></g>
+            <g class="fb-value" transform="translate(835 215)"><rect width="110" height="38" rx="7"/><text x="10" y="25">PX HP IN</text><text id="fbPxHpIn" x="100" y="25" text-anchor="end">110</text></g>
+            <g class="fb-value" transform="translate(820 16)"><rect width="110" height="38" rx="7"/><text x="10" y="25">Permeate</text><text id="fbPerm" x="100" y="25" text-anchor="end">50</text></g>
+            <g class="fb-value" transform="translate(520 380)"><rect width="118" height="38" rx="7"/><text x="10" y="25">PX LP OUT</text><text id="fbPxLpOut" x="108" y="25" text-anchor="end">110</text></g>
+            <g class="fb-value" transform="translate(845 380)"><rect width="118" height="38" rx="7"/><text x="10" y="25">Direct Reject</text><text id="fbDirectReject" x="108" y="25" text-anchor="end">28</text></g>
+          </svg>
+        </section>
+
+        <aside class="ts-card fb-input-card">
+          <div class="ts-card-head"><div><span class="ts-kicker">INPUTS</span><h2>Measured Flow Values</h2></div><button type="button" class="ts-mini-btn" id="loadDesignFlows">Load Design</button></div>
+          <div class="fb-input-grid">
+            <label><span>Total Feed</span><div><input id="mFeed" type="number" value="188" step="0.1"><b>m³/h</b></div></label>
+            <label><span>HPP Branch</span><div><input id="mHpp" type="number" value="78" step="0.1"><b>m³/h</b></div></label>
+            <label><span>PX LP IN</span><div><input id="mPxLpIn" type="number" value="110" step="0.1"><b>m³/h</b></div></label>
+            <label><span>RO Feed Header</span><div><input id="mRoFeed" type="number" value="188" step="0.1"><b>m³/h</b></div></label>
+            <label><span>PX HP OUT</span><div><input id="mPxHpOut" type="number" value="110" step="0.1"><b>m³/h</b></div></label>
+            <label><span>Permeate</span><div><input id="mPerm" type="number" value="50" step="0.1"><b>m³/h</b></div></label>
+            <label><span>PX HP IN</span><div><input id="mPxHpIn" type="number" value="110" step="0.1"><b>m³/h</b></div></label>
+            <label><span>PX LP OUT</span><div><input id="mPxLpOut" type="number" value="110" step="0.1"><b>m³/h</b></div></label>
+            <label><span>Direct Vessel Reject</span><div><input id="mDirectReject" type="number" value="28" step="0.1"><b>m³/h</b></div></label>
+            <label class="fb-tolerance"><span>Allowed Balance Error</span><div><input id="mTolerance" type="number" value="3" min="0.1" step="0.1"><b>%</b></div></label>
           </div>
-          <button class="tool-btn primary full-btn" id="scanAlarms">Detect Abnormal Parameters</button>
-        </article>
-        <article class="module-card"><h2>Detection Results</h2><div id="alarmResults" class="diagnostic-stack"></div></article>
+          <button class="tool-btn primary full-btn" id="runFlowBalance">Analyze Flow Balance</button>
+        </aside>
+      </div>
+
+      <div id="measuredBalanceResults" class="fb-check-grid"></div>
+
+      <div class="ts-card fb-conclusion-card">
+        <div class="ts-card-head"><div><span class="ts-kicker">DIAGNOSTIC CONCLUSION</span><h2>What the balance means</h2></div></div>
+        <div id="flowBalanceConclusion" class="fb-conclusion">
+          <div class="fb-conclusion-icon good">✓</div>
+          <div><b>All entered balances are within tolerance.</b><p>The measurement set is internally consistent. If a hydraulic symptom remains, continue with pressure, valve, pump and PX checks.</p></div>
+        </div>
       </div>
     </div>
   </section>
