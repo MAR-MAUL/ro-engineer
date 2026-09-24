@@ -136,9 +136,9 @@
     <div>
       <span class="eyebrow">RO PLANT DESIGN</span>
       <h1>Visual RO process designer</h1>
-      <p>Build and review the hydraulic arrangement on an interactive canvas. Click equipment or streams for details, move equipment around, then run the preliminary calculation.</p>
+      <p>Use the process view to understand the plant arrangement while the sizing inputs and calculated results stay simple and easy to follow.</p>
     </div>
-    <span class="design-pill">Interactive workspace</span>
+    <span class="design-pill">Preliminary design</span>
   </div>
 
   <div class="designer-toolbar">
@@ -150,8 +150,6 @@
           <option value="recycle">Concentrate Recirculation</option>
         </select>
       </label>
-      <button class="designer-tool" id="dResetLayout">↺ Reset layout</button>
-      <button class="designer-tool" id="dFitView">⌗ Fit view</button>
     </div>
     <div class="designer-tool-group">
       <label class="designer-toggle"><input id="dShowValues" type="checkbox" checked><span></span>Stream values</label>
@@ -168,48 +166,19 @@
     <label><span>Product TDS</span><div><input id="dProductTds" type="number" value="400" step="10"><b>mg/L</b></div></label>
   </div>
 
-  <div class="designer-workspace">
-    <aside class="designer-palette">
-      <span class="palette-title">Equipment</span>
-      <button data-focus-node="feed"><i>↦</i><small>Feed</small></button>
-      <button data-focus-node="dose"><i>+</i><small>Dosing</small></button>
-      <button data-focus-node="split"><i>Y</i><small>Split</small></button>
-      <button data-focus-node="hpp"><i>▶</i><small>HPP</small></button>
-      <button data-focus-node="cp"><i>▶</i><small>CP</small></button>
-      <button data-focus-node="blend"><i>◇</i><small>Blend</small></button>
-      <button data-focus-node="ro"><i>RO</i><small>RO Train</small></button>
-      <button data-focus-node="px"><i>↻</i><small>PX</small></button>
-      <button data-focus-node="product"><i>≈</i><small>Product</small></button>
-      <button data-focus-node="reject"><i>↓</i><small>Reject</small></button>
-    </aside>
-
-    <div class="designer-canvas-shell">
-      <div class="designer-canvas-head">
-        <div><b id="dCanvasTitle">SWRO + PX</b><small>Drag equipment · click a stream or equipment item to inspect</small></div>
-        <div class="canvas-legend"><span class="feed-line-key"></span>Feed / HP <span class="reject-line-key"></span>Reject <span class="product-line-key"></span>Product</div>
-      </div>
-      <div class="designer-canvas" id="designCanvas">
-        <div class="design-stage" id="designStage">
-          <svg id="designLinks" class="design-links" aria-hidden="true"></svg>
-          <div id="designNodes"></div>
-          <div id="designStreamLabels"></div>
-        </div>
-      </div>
-    </div>
-
-    <aside class="designer-inspector">
-      <div class="inspector-head"><span class="eyebrow">INSPECTOR</span><h2 id="dInspectorTitle">System</h2></div>
-      <div id="dInspectorBody"></div>
-      <div class="inspector-divider"></div>
-      <span class="eyebrow">MEMBRANE ARRAY</span>
+  <div class="design-settings-grid">
+    <article class="panel design-card">
+      <div class="panel-head"><div><span class="eyebrow">MEMBRANE ARRAY</span><h2>RO configuration</h2></div></div>
       <div class="inspector-grid">
         <label><span>Vessels</span><input id="dVessels" type="number" value="12" min="1"></label>
         <label><span>Elements / vessel</span><input id="dElementsPerVessel" type="number" value="7" min="1"></label>
         <label><span>Element area</span><div><input id="dElementArea" type="number" value="37.2" step="0.1"><b>m²</b></div></label>
         <label><span>Water type</span><select id="dWaterType"><option value="seawater">Seawater</option><option value="brackish">Brackish</option></select></label>
       </div>
-      <div class="inspector-divider"></div>
-      <span class="eyebrow">ENERGY RECOVERY</span>
+    </article>
+
+    <article class="panel design-card">
+      <div class="panel-head"><div><span class="eyebrow">ENERGY RECOVERY</span><h2>PX / pump assumptions</h2></div></div>
       <div class="inspector-grid">
         <label><span>PX fraction</span><div><input id="dPxFraction" type="number" value="90" step="1"><b>%</b></div></label>
         <label><span>PX efficiency</span><div><input id="dPxEff" type="number" value="97" step="0.1"><b>%</b></div></label>
@@ -218,7 +187,21 @@
         <label><span>HPP efficiency</span><div><input id="dHppEff" type="number" value="80" step="1"><b>%</b></div></label>
         <label><span>CP efficiency</span><div><input id="dCpEff" type="number" value="75" step="1"><b>%</b></div></label>
       </div>
-    </aside>
+    </article>
+  </div>
+
+  <div class="designer-canvas-shell static-canvas-shell">
+    <div class="designer-canvas-head">
+      <div><b id="dCanvasTitle">SWRO + PX</b><small>Static process view · calculated stream values update automatically</small></div>
+      <div class="canvas-legend"><span class="feed-line-key"></span>Feed / HP <span class="reject-line-key"></span>Reject <span class="product-line-key"></span>Product</div>
+    </div>
+    <div class="designer-canvas" id="designCanvas">
+      <div class="design-stage" id="designStage">
+        <svg id="designLinks" class="design-links" aria-hidden="true"></svg>
+        <div id="designNodes"></div>
+        <div id="designStreamLabels"></div>
+      </div>
+    </div>
   </div>
 
   <div class="designer-results-grid">
