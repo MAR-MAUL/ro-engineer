@@ -25,6 +25,7 @@
       <button class="nav-item active" data-nav="home"><span>⌂</span><b>Home</b></button>
       <button class="nav-item" data-nav="alarms"><span>◉</span><b>Alarms</b></button>
       <button class="nav-item" data-nav="troubleshoot"><span>✚</span><b>Troubleshoot</b></button>
+      <button class="nav-item" data-nav="design"><span>◇</span><b>RO Plant Design</b></button>
       <button class="nav-item" data-nav="balance"><span>⇄</span><b>Flow Balance</b></button>
       <button class="nav-item" data-nav="assistant"><span>✦</span><b>AI Assistant</b></button>
     </nav>
@@ -129,6 +130,100 @@
       </div>
     </section>
 
+
+    <section class="screen" id="screen-design">
+      <div class="page-head design-page-head">
+        <div>
+          <span class="eyebrow">RO PLANT DESIGN</span>
+          <h1>Build the plant from capacity to membrane loading.</h1>
+          <p>Preliminary RO sizing with live mass balance, membrane loading, PX/HPP/CP split, power and design checks. Vendor-specific membrane projection can be layered on later.</p>
+        </div>
+        <span class="design-pill">Live sizing</span>
+      </div>
+
+      <div class="design-kpis">
+        <div class="design-kpi coral"><small>Permeate Capacity</small><strong id="dKpiCapacity">1,500</strong><span>m³/day</span></div>
+        <div class="design-kpi purple"><small>Feed Flow</small><strong id="dKpiFeed">147.1</strong><span>m³/h</span></div>
+        <div class="design-kpi mint"><small>Average Flux</small><strong id="dKpiFlux">15.0</strong><span>LMH</span></div>
+        <div class="design-kpi amber"><small>Specific Energy</small><strong id="dKpiSec">—</strong><span>kWh/m³</span></div>
+      </div>
+
+      <div class="design-layout">
+        <div class="design-form-stack">
+          <article class="panel design-card">
+            <div class="panel-head"><div><span class="eyebrow">01 · DESIGN BASIS</span><h2>Production & feed water</h2></div></div>
+            <div class="design-form-grid">
+              <label class="field"><span>Target permeate capacity</span><div><input id="dCapacity" type="number" value="1500" step="10"><b>m³/day</b></div></label>
+              <label class="field"><span>Water type</span><div><select id="dWaterType"><option value="seawater">Seawater</option><option value="brackish">Brackish water</option></select></div></label>
+              <label class="field"><span>Feed TDS</span><div><input id="dFeedTds" type="number" value="35000" step="100"><b>mg/L</b></div></label>
+              <label class="field"><span>Feed temperature</span><div><input id="dTemp" type="number" value="28" step="0.1"><b>°C</b></div></label>
+              <label class="field"><span>Target recovery</span><div><input id="dRecovery" type="number" value="42.5" step="0.1"><b>%</b></div></label>
+              <label class="field"><span>Target product TDS</span><div><input id="dProductTds" type="number" value="400" step="10"><b>mg/L</b></div></label>
+            </div>
+          </article>
+
+          <article class="panel design-card">
+            <div class="panel-head"><div><span class="eyebrow">02 · MEMBRANE ARRAY</span><h2>Vessels & elements</h2></div></div>
+            <div class="design-form-grid">
+              <label class="field"><span>Membrane family</span><div><select id="dMembraneFamily"><option>Generic SWRO · 400 ft² class</option><option>Generic BWRO · 400 ft² class</option><option>Custom / vendor model</option></select></div></label>
+              <label class="field"><span>Element active area</span><div><input id="dElementArea" type="number" value="37.2" step="0.1"><b>m²</b></div></label>
+              <label class="field"><span>Pressure vessels</span><div><input id="dVessels" type="number" value="12" min="1" step="1"><b>ea</b></div></label>
+              <label class="field"><span>Elements / vessel</span><div><input id="dElementsPerVessel" type="number" value="7" min="1" step="1"><b>ea</b></div></label>
+              <label class="field"><span>Passes</span><div><select id="dPasses"><option value="1">1 Pass</option><option value="2">2 Passes</option></select></div></label>
+              <label class="field"><span>First-pass stages</span><div><select id="dStages"><option value="1">1 Stage</option><option value="2">2 Stages</option></select></div></label>
+            </div>
+            <div class="array-visual" id="dArrayVisual"></div>
+          </article>
+
+          <article class="panel design-card">
+            <div class="panel-head"><div><span class="eyebrow">03 · PRESSURE & ENERGY RECOVERY</span><h2>HPP, PX and circulation pump</h2></div></div>
+            <div class="design-form-grid">
+              <label class="field"><span>Energy recovery</span><div><select id="dErd"><option value="px">Pressure exchanger (PX)</option><option value="none">No ERD</option></select></div></label>
+              <label class="field"><span>Design RO pressure</span><div><input id="dRoPressure" type="number" value="58" step="0.1"><b>bar</b></div></label>
+              <label class="field"><span>Feed pressure</span><div><input id="dFeedPressure" type="number" value="1.5" step="0.1"><b>bar</b></div></label>
+              <label class="field"><span>Reject pressure</span><div><input id="dRejectPressure" type="number" value="56" step="0.1"><b>bar</b></div></label>
+              <label class="field"><span>PX pressure efficiency</span><div><input id="dPxEff" type="number" value="97" step="0.1"><b>%</b></div></label>
+              <label class="field"><span>PX reject fraction</span><div><input id="dPxFraction" type="number" value="90" step="1"><b>%</b></div></label>
+              <label class="field"><span>HPP efficiency</span><div><input id="dHppEff" type="number" value="80" step="1"><b>%</b></div></label>
+              <label class="field"><span>CP efficiency</span><div><input id="dCpEff" type="number" value="75" step="1"><b>%</b></div></label>
+            </div>
+          </article>
+        </div>
+
+        <aside class="design-results-stack">
+          <article class="panel design-card sticky-design-result">
+            <div class="panel-head"><div><span class="eyebrow">LIVE DESIGN SUMMARY</span><h2>Hydraulic sizing</h2></div></div>
+            <div id="dHydraulicSummary" class="design-summary-list"></div>
+          </article>
+
+          <article class="panel design-card">
+            <div class="panel-head"><div><span class="eyebrow">MEMBRANE LOADING</span><h2>Array performance</h2></div></div>
+            <div id="dMembraneSummary" class="design-summary-list"></div>
+          </article>
+
+          <article class="panel design-card">
+            <div class="panel-head"><div><span class="eyebrow">DESIGN REVIEW</span><h2>Checks & observations</h2></div></div>
+            <div id="dDesignChecks" class="design-checks"></div>
+          </article>
+        </aside>
+      </div>
+
+      <article class="panel design-card design-flow-card">
+        <div class="panel-head"><div><span class="eyebrow">CALCULATED FLOW PATH</span><h2>RO process balance</h2></div><button class="secondary-btn" id="dUseInBalance">Use in Flow Balance</button></div>
+        <div class="design-flow">
+          <div class="design-flow-node feed"><small>Feed</small><strong id="dFlowFeed">—</strong><span>m³/h</span></div>
+          <div class="design-arrow">→</div>
+          <div class="design-flow-node pressure"><small>RO Feed Header</small><strong id="dFlowHeader">—</strong><span>m³/h</span></div>
+          <div class="design-arrow">→</div>
+          <div class="design-flow-split">
+            <div class="design-flow-node product"><small>Permeate</small><strong id="dFlowPerm">—</strong><span>m³/h</span></div>
+            <div class="design-flow-node reject"><small>Reject</small><strong id="dFlowReject">—</strong><span>m³/h</span></div>
+          </div>
+        </div>
+        <p class="design-footnote">This is a preliminary engineering sizing layer. Final membrane projection should use the selected manufacturer's element data, ionic analysis, pressure-drop limits and fouling/scaling assumptions.</p>
+      </article>
+    </section>
+
     <section class="screen" id="screen-balance">
       <div class="page-head">
         <div><span class="eyebrow">FLOW BALANCING</span><h1>See exactly where the numbers stop agreeing</h1><p>Use measured values. The system checks the four core relationships before suggesting a PX or pump fault.</p></div>
@@ -205,10 +300,12 @@
     <button class="active" data-nav="home"><span>⌂</span><small>Home</small></button>
     <button data-nav="alarms"><span>◉</span><small>Alarms</small></button>
     <button data-nav="troubleshoot"><span>✚</span><small>Diagnose</small></button>
+    <button data-nav="design"><span>◇</span><small>Design</small></button>
     <button data-nav="balance"><span>⇄</span><small>Balance</small></button>
     <button data-nav="assistant"><span>✦</span><small>AI</small></button>
   </nav>
 </div>
 <script src="app.js"></script>
+<script src="design.js"></script>
 </body>
 </html>
