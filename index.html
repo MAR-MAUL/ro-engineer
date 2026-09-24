@@ -5,33 +5,34 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RO Engineer</title>
 <link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="app">
 <header class="topbar">
   <div class="brand"><span class="drop">◉</span><strong>RO</strong> <span>Engineer</span></div>
   <nav class="topnav">
-    <button>▣ Dashboard</button>
-    <button class="active">⌁ Process Flow</button>
-    <button>⌘ Membrane Design</button>
-    <button>⚖ Flow Balancing</button>
-    <button>ϟ Energy System</button>
-    <button>⌁ Performance</button>
-    <button>▤ Reports</button>
+    <button data-view-target="dashboard">▣ Dashboard</button>
+    <button class="active" data-view-target="process">⌁ Process Flow</button>
+    <button data-view-target="membrane">⌘ Membrane Design</button>
+    <button data-view-target="troubleshooting">✚ Troubleshooting</button>
+    <button data-view-target="energy">ϟ Energy System</button>
+    <button data-view-target="performance">⌁ Performance</button>
+    <button data-view-target="reports">▤ Reports</button>
   </nav>
-  <div class="profile"><span class="avatar">MR</span><div><b>Process Engineer</b><small>RO Design</small></div></div>
+  <div class="profile"><span class="avatar">MR</span><div><b id="profileName">Process Engineer</b><small id="profileState">RO Design</small></div></div>
 </header>
 
 <aside class="sidebar">
-  <button class="active">⌁ <span>Process Flow</span></button>
-  <button>☷ <span>Membrane Design</span></button>
-  <button>⚖ <span>Flow Balancing</span></button>
-  <button>ϟ <span>Energy System</span></button>
-  <button>⌁ <span>Performance</span></button>
-  <button>▤ <span>Reports</span></button>
+  <button class="active" data-view-target="process">⌁ <span>Process Flow</span></button>
+  <button data-view-target="membrane">☷ <span>Membrane Design</span></button>
+  <button data-view-target="troubleshooting">✚ <span>Troubleshooting</span></button>
+  <button data-view-target="energy">ϟ <span>Energy System</span></button>
+  <button data-view-target="performance">⌁ <span>Performance</span></button>
+  <button data-view-target="reports">▤ <span>Reports</span></button>
   <div class="side-sep"></div>
-  <button>▱ <span>Projects</span></button>
-  <button>⚙ <span>Settings</span></button>
+  <button data-view-target="projects">▱ <span>Projects</span></button>
+  <button data-view-target="settings">⚙ <span>Settings</span></button>
 </aside>
 
 <main class="main">
@@ -39,236 +40,338 @@
     <label><span>Project</span><select id="project"><option>MWSC Borewell RO 1</option><option>New RO Design</option></select></label>
     <label><span>Case</span><select id="case"><option>Design Case 01 (Base)</option><option>Design Case 02</option></select></label>
     <label><span>Design Flow</span><div class="unit-input"><input id="feedFlow" type="number" value="188" step="0.1"><b>m³/h</b></div></label>
-    <label><span>Recovery</span><div class="unit-input"><input id="recovery" type="number" value="26.6" step="0.1"><b>%</b></div></label>
+    <label><span>Recovery Target</span><div class="unit-input"><input id="recovery" type="number" value="26.6" step="0.1"><b>%</b></div></label>
     <label><span>Water Type</span><select id="waterType"><option>Seawater (TDS 2,800 mg/L)</option><option>Brackish Water</option></select></label>
   </section>
 
   <section class="toolbar">
-    <button class="tool-btn">↗ Auto Arrange</button>
+    <button class="tool-btn" id="autoArrange">↗ Auto Arrange</button>
     <label class="switch">Show Values <input id="showValues" type="checkbox" checked><i></i></label>
     <label class="switch">Show Instruments <input id="showInstruments" type="checkbox" checked><i></i></label>
     <button class="tool-btn primary" id="calculateBtn">↗ Calculate</button>
-    <div class="zoom">Zoom <button>−</button><strong>100%</strong><button>+</button></div>
-    <button class="tool-btn">↻ Reset View</button>
+    <div class="zoom">Zoom <button type="button" id="zoomOut">−</button><strong id="zoomLabel">100%</strong><button type="button" id="zoomIn">+</button></div>
+    <button class="tool-btn" id="resetView">↻ Reset View</button>
   </section>
 
-  <section class="work-grid">
-    <div class="process-card">
-      <svg id="processSvg" viewBox="0 0 1160 560" aria-label="RO process flow">
-        <defs>
-          <linearGradient id="panelBg" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0%" stop-color="#071b2d"/>
-            <stop offset="100%" stop-color="#03111e"/>
-          </linearGradient>
-          <linearGradient id="metal" x1="0" x2="1">
-            <stop offset="0%" stop-color="#7ea6bd"/>
-            <stop offset="25%" stop-color="#e9f8ff"/>
-            <stop offset="55%" stop-color="#9ec9dd"/>
-            <stop offset="100%" stop-color="#5c8298"/>
-          </linearGradient>
-          <linearGradient id="vesselBlue" x1="0" x2="1">
-            <stop offset="0%" stop-color="#dff5ff"/>
-            <stop offset="18%" stop-color="#258cff"/>
-            <stop offset="68%" stop-color="#0754be"/>
-            <stop offset="100%" stop-color="#d9f4ff"/>
-          </linearGradient>
-          <linearGradient id="pxBlue" x1="0" x2="1">
-            <stop offset="0%" stop-color="#0f67ca"/>
-            <stop offset="50%" stop-color="#168ef8"/>
-            <stop offset="100%" stop-color="#0a4f9c"/>
-          </linearGradient>
-          <pattern id="dotgrid" width="22" height="22" patternUnits="userSpaceOnUse">
-            <circle cx="1" cy="1" r="1" fill="#0e5279" opacity=".42"/>
-          </pattern>
-          <marker id="blueArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L9,3 z" fill="#138dff"/>
-          </marker>
-          <marker id="orangeArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L9,3 z" fill="#ff8e28"/>
-          </marker>
-          <marker id="cyanArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L9,3 z" fill="#67ddff"/>
-          </marker>
-        </defs>
+  <section id="view-process" class="view active">
+    <section class="work-grid">
+      <div class="process-card">
+        <svg id="processSvg" viewBox="0 0 1160 560" aria-label="RO process flow">
+          <defs>
+            <linearGradient id="panelBg" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stop-color="#071b2d"/><stop offset="100%" stop-color="#03111e"/></linearGradient>
+            <linearGradient id="metal" x1="0" x2="1"><stop offset="0%" stop-color="#7ea6bd"/><stop offset="25%" stop-color="#e9f8ff"/><stop offset="55%" stop-color="#9ec9dd"/><stop offset="100%" stop-color="#5c8298"/></linearGradient>
+            <linearGradient id="vesselBlue" x1="0" x2="1"><stop offset="0%" stop-color="#dff5ff"/><stop offset="18%" stop-color="#258cff"/><stop offset="68%" stop-color="#0754be"/><stop offset="100%" stop-color="#d9f4ff"/></linearGradient>
+            <linearGradient id="pxBlue" x1="0" x2="1"><stop offset="0%" stop-color="#0f67ca"/><stop offset="50%" stop-color="#168ef8"/><stop offset="100%" stop-color="#0a4f9c"/></linearGradient>
+            <pattern id="dotgrid" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#0e5279" opacity=".42"/></pattern>
+            <marker id="blueArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#138dff"/></marker>
+            <marker id="orangeArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff8e28"/></marker>
+            <marker id="cyanArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#67ddff"/></marker>
+          </defs>
 
-        <rect x="0" y="0" width="1160" height="560" rx="10" fill="url(#panelBg)"/>
-        <rect x="0" y="0" width="1160" height="560" rx="10" fill="url(#dotgrid)"/>
+          <rect x="0" y="0" width="1160" height="560" rx="10" fill="url(#panelBg)"/>
+          <rect x="0" y="0" width="1160" height="560" rx="10" fill="url(#dotgrid)"/>
 
-        <!-- Feed -->
-        <text class="eq-title" x="14" y="176">Feed Water</text>
-        <text class="eq-sub" x="14" y="195">(from Pretreatment)</text>
-        <path class="feed-pipe" d="M15 220 H150" marker-end="url(#blueArrow)"/>
+          <text class="eq-title" x="14" y="176">Feed Water</text><text class="eq-sub" x="14" y="195">(from Pretreatment)</text>
+          <path class="feed-pipe" d="M15 220 H150" marker-end="url(#blueArrow)"/>
 
-        <!-- Bag Filter -->
-        <g transform="translate(150,142)">
-          <ellipse cx="42" cy="14" rx="21" ry="7" fill="url(#metal)" stroke="#aee1f7"/>
-          <rect x="23" y="14" width="38" height="115" rx="16" fill="url(#metal)" stroke="#aee1f7"/>
-          <path d="M23 68 H61" stroke="#638da4" stroke-width="2"/>
-          <path d="M30 129 L35 160 H49 L54 129 Z" fill="url(#metal)" stroke="#aee1f7"/>
-          <rect x="35" y="0" width="14" height="14" rx="2" fill="url(#metal)" stroke="#aee1f7"/>
-          <text class="eq-title" x="42" y="-16" text-anchor="middle">Bag Filter</text>
-        </g>
-
-        <!-- Split after bag filter -->
-        <path class="feed-pipe" d="M210 220 H270 V150 H410" marker-end="url(#blueArrow)"/>
-        <path class="feed-pipe" d="M270 220 V360 H415" marker-end="url(#blueArrow)"/>
-        <text class="pipe-label" x="280" y="132">To HPP</text>
-        <text class="pipe-label" x="285" y="340">PX LP IN</text>
-        <text class="pipe-sub" x="285" y="355">(from Bag Filter)</text>
-
-        <!-- HPP -->
-        <g transform="translate(415,112)">
-          <circle cx="58" cy="40" r="36" fill="#0877e2" stroke="#48caff" stroke-width="3"/>
-          <circle cx="58" cy="40" r="17" fill="#0451a9" stroke="#68d6ff" stroke-width="2"/>
-          <circle cx="58" cy="40" r="7" fill="#1c8eff"/>
-          <rect x="45" y="-2" width="25" height="14" rx="3" fill="#8fdfff" stroke="#43b5e9"/>
-          <rect x="92" y="22" width="42" height="36" rx="6" fill="#0b63b7" stroke="#36baf4" stroke-width="2"/>
-          <path d="M94 26 H132 M94 34 H132 M94 42 H132 M94 50 H132" stroke="#45a9dd" stroke-width="2"/>
-          <text class="eq-title" x="58" y="-28" text-anchor="middle">High Pressure Pump</text>
-          <text class="eq-title" x="58" y="-11" text-anchor="middle">(HPP)</text>
-          <text class="freq-tag" x="58" y="96" text-anchor="middle">50 Hz</text>
-        </g>
-
-        <!-- HPP discharge to common header -->
-        <path class="feed-pipe" d="M547 152 H775" marker-end="url(#blueArrow)"/>
-        <text class="pipe-label" x="640" y="133">HPP Discharge</text>
-        <text class="pipe-sub" x="640" y="148">to RO Inlet Header</text>
-
-        <!-- Header -->
-        <g transform="translate(775,128)">
-          <rect x="0" y="0" width="22" height="58" rx="5" fill="url(#metal)" stroke="#9bd7ed"/>
-          <path d="M10 6 V52" stroke="#6d93a7" stroke-width="2"/>
-        </g>
-
-        <!-- PX -->
-        <g transform="translate(415,335)">
-          <rect x="0" y="15" width="185" height="58" rx="29" fill="url(#pxBlue)" stroke="#50c8ff" stroke-width="3"/>
-          <rect x="-8" y="24" width="18" height="40" rx="7" fill="#d99a20" stroke="#ffcf59" stroke-width="2"/>
-          <rect x="175" y="24" width="18" height="40" rx="7" fill="#d99a20" stroke="#ffcf59" stroke-width="2"/>
-          <path d="M18 19 V69 M28 18 V70 M157 18 V70 M167 19 V69" stroke="#60c8ff" stroke-width="2"/>
-          <text class="eq-title" x="92" y="-9" text-anchor="middle">Pressure Exchanger (PX)</text>
-        </g>
-
-        <!-- PX HP OUT -> CP -->
-        <path class="feed-pipe" d="M608 379 H700" marker-end="url(#blueArrow)"/>
-        <text class="pipe-label" x="620" y="350">PX HP OUT</text>
-        <text class="pipe-sub" x="620" y="365">(to CP)</text>
-
-        <!-- CP -->
-        <g transform="translate(700,338)">
-          <circle cx="50" cy="40" r="32" fill="#0877e2" stroke="#48caff" stroke-width="3"/>
-          <circle cx="50" cy="40" r="14" fill="#0451a9" stroke="#68d6ff" stroke-width="2"/>
-          <rect x="39" y="0" width="22" height="13" rx="3" fill="#8fdfff" stroke="#43b5e9"/>
-          <text class="eq-title" x="50" y="-25" text-anchor="middle">Circulation Pump</text>
-          <text class="eq-title" x="50" y="-8" text-anchor="middle">(CP)</text>
-          <text class="freq-tag" x="50" y="90" text-anchor="middle">50 Hz</text>
-        </g>
-
-        <!-- CP out upward to header -->
-        <path class="feed-pipe" d="M782 378 H830 V158 H920" marker-end="url(#blueArrow)"/>
-
-        <!-- RO Train -->
-        <g>
-          <rect x="915" y="72" width="225" height="300" rx="10" fill="#041624" stroke="#6d93a7" stroke-width="1.5" stroke-dasharray="7 5"/>
-          <text class="eq-title" x="1028" y="96" text-anchor="middle">RO Train</text>
-          <text class="eq-title" x="1028" y="114" text-anchor="middle">(1 Pass / 1 Stage)</text>
-          <text class="pipe-sub" x="1028" y="132" text-anchor="middle">3 Pressure Vessels Online</text>
-
-          <g transform="translate(952,152)">
-            <rect x="0" y="0" width="150" height="42" rx="20" fill="url(#vesselBlue)" stroke="#9ee0ff" stroke-width="2"/>
-            <rect x="-9" y="10" width="12" height="22" rx="3" fill="#d6eef8" stroke="#72bddd"/>
-            <rect x="147" y="10" width="12" height="22" rx="3" fill="#d6eef8" stroke="#72bddd"/>
-          </g>
-          <g transform="translate(952,225)">
-            <rect x="0" y="0" width="150" height="42" rx="20" fill="url(#vesselBlue)" stroke="#9ee0ff" stroke-width="2"/>
-            <rect x="-9" y="10" width="12" height="22" rx="3" fill="#d6eef8" stroke="#72bddd"/>
-            <rect x="147" y="10" width="12" height="22" rx="3" fill="#d6eef8" stroke="#72bddd"/>
-          </g>
-          <g transform="translate(952,298)">
-            <rect x="0" y="0" width="150" height="42" rx="20" fill="url(#vesselBlue)" stroke="#9ee0ff" stroke-width="2"/>
-            <rect x="-9" y="10" width="12" height="22" rx="3" fill="#d6eef8" stroke="#72bddd"/>
-            <rect x="147" y="10" width="12" height="22" rx="3" fill="#d6eef8" stroke="#72bddd"/>
+          <g transform="translate(150,142)">
+            <ellipse cx="42" cy="14" rx="21" ry="7" fill="url(#metal)" stroke="#aee1f7"/>
+            <rect x="23" y="14" width="38" height="115" rx="16" fill="url(#metal)" stroke="#aee1f7"/>
+            <path d="M23 68 H61" stroke="#638da4" stroke-width="2"/>
+            <path d="M30 129 L35 160 H49 L54 129 Z" fill="url(#metal)" stroke="#aee1f7"/>
+            <rect x="35" y="0" width="14" height="14" rx="2" fill="url(#metal)" stroke="#aee1f7"/>
+            <text class="eq-title" x="42" y="-16" text-anchor="middle">Bag Filter</text>
           </g>
 
-          <path class="feed-pipe thin" d="M920 158 H943"/>
-          <path class="feed-pipe thin" d="M920 158 V246 H943"/>
-          <path class="feed-pipe thin" d="M920 158 V319 H943"/>
-        </g>
+          <path class="feed-pipe" d="M210 220 H270 V150 H410" marker-end="url(#blueArrow)"/>
+          <path class="feed-pipe" d="M270 220 V360 H415" marker-end="url(#blueArrow)"/>
+          <text class="pipe-label" x="280" y="132">To HPP</text><text class="pipe-sub" x="280" y="147">(from Bag Filter)</text>
+          <text class="pipe-label" x="285" y="340">PX LP IN</text><text class="pipe-sub" x="285" y="355">(from Bag Filter)</text>
 
-        <!-- Permeate -->
-        <path class="perm-pipe" d="M1111 173 H1132 V245 H1150" marker-end="url(#cyanArrow)"/>
-        <path class="perm-pipe thin" d="M1111 246 H1132"/>
-        <path class="perm-pipe thin" d="M1111 319 H1132"/>
-        <text class="eq-title" x="1114" y="210">Permeate</text>
-        <text class="pipe-sub" x="1114" y="227">(to Post Treatment)</text>
+          <g transform="translate(415,112)">
+            <circle cx="58" cy="40" r="36" fill="#0877e2" stroke="#48caff" stroke-width="3"/>
+            <circle cx="58" cy="40" r="17" fill="#0451a9" stroke="#68d6ff" stroke-width="2"/>
+            <circle cx="58" cy="40" r="7" fill="#1c8eff"/>
+            <rect x="45" y="-2" width="25" height="14" rx="3" fill="#8fdfff" stroke="#43b5e9"/>
+            <rect x="92" y="22" width="42" height="36" rx="6" fill="#0b63b7" stroke="#36baf4" stroke-width="2"/>
+            <path d="M94 26 H132 M94 34 H132 M94 42 H132 M94 50 H132" stroke="#45a9dd" stroke-width="2"/>
+            <text class="eq-title" x="58" y="-28" text-anchor="middle">High Pressure Pump</text><text class="eq-title" x="58" y="-11" text-anchor="middle">(HPP)</text>
+            <text class="freq-tag" x="58" y="96" text-anchor="middle">50 Hz</text>
+          </g>
 
-        <!-- Reject from RO to PX HP IN -->
-        <path class="reject-pipe" d="M1095 340 V455 H610 V408" marker-end="url(#orangeArrow)"/>
-        <text class="reject-label" x="840" y="432">RO Reject to PX HP IN</text>
+          <path class="feed-pipe" d="M547 152 H775" marker-end="url(#blueArrow)"/>
+          <text class="pipe-label" x="640" y="133">HPP Discharge</text><text class="pipe-sub" x="640" y="148">to RO Inlet Header</text>
+          <g transform="translate(775,128)"><rect x="0" y="0" width="22" height="58" rx="5" fill="url(#metal)" stroke="#9bd7ed"/><path d="M10 6 V52" stroke="#6d93a7" stroke-width="2"/></g>
 
-        <!-- Direct vessel reject -->
-        <path class="reject-pipe" d="M1117 340 V515 H1147" marker-end="url(#orangeArrow)"/>
-        <text class="reject-label" x="1015" y="497">Vessel Reject</text>
-        <text class="reject-sub" x="1015" y="512">(LP Reject)</text>
+          <g transform="translate(415,335)">
+            <rect x="0" y="15" width="185" height="58" rx="29" fill="url(#pxBlue)" stroke="#50c8ff" stroke-width="3"/>
+            <rect x="-8" y="24" width="18" height="40" rx="7" fill="#d99a20" stroke="#ffcf59" stroke-width="2"/>
+            <rect x="175" y="24" width="18" height="40" rx="7" fill="#d99a20" stroke="#ffcf59" stroke-width="2"/>
+            <path d="M18 19 V69 M28 18 V70 M157 18 V70 M167 19 V69" stroke="#60c8ff" stroke-width="2"/>
+            <text class="eq-title" x="92" y="-9" text-anchor="middle">Pressure Exchanger (PX)</text>
+          </g>
 
-        <!-- PX LP OUT to reject -->
-        <path class="reject-pipe" d="M470 408 V515 H1147" marker-end="url(#orangeArrow)"/>
-        <text class="reject-label" x="365" y="465">PX LP OUT</text>
-        <text class="reject-sub" x="365" y="480">(to Reject)</text>
-        <text class="eq-title reject-color" x="1020" y="548">To Reject / Drain</text>
+          <path class="feed-pipe" d="M608 379 H700" marker-end="url(#blueArrow)"/>
+          <text class="pipe-label" x="620" y="350">PX HP OUT</text><text class="pipe-sub" x="620" y="365">(to CP)</text>
 
-        <!-- Value tags -->
-        <g id="valueTags">
-          <g class="tag" transform="translate(220,165)"><rect width="95" height="70" rx="6"/><text x="10" y="22">Q</text><text id="tagFeed" x="35" y="22">188</text><text x="70" y="22">m³/h</text><text x="10" y="43">P</text><text id="tagFeedP" x="35" y="43">0.5</text><text x="70" y="43">bar</text><text x="10" y="63">DP</text><text x="42" y="63">0.1</text></g>
-          <g class="tag" transform="translate(565,103)"><rect width="98" height="58" rx="6"/><text x="10" y="21">Q</text><text id="tagHpp" x="35" y="21">78</text><text x="72" y="21">m³/h</text><text x="10" y="43">P</text><text id="tagHppP" x="35" y="43">56.5</text><text x="76" y="43">bar</text></g>
-          <g class="tag" transform="translate(302,365)"><rect width="100" height="58" rx="6"/><text x="10" y="21">Q</text><text id="tagPxLpIn" x="35" y="21">110</text><text x="72" y="21">m³/h</text><text x="10" y="43">P</text><text id="tagPxLpInP" x="35" y="43">0.5</text><text x="76" y="43">bar</text></g>
-          <g class="tag" transform="translate(610,388)"><rect width="100" height="58" rx="6"/><text x="10" y="21">Q</text><text id="tagPxHpOut" x="35" y="21">110</text><text x="72" y="21">m³/h</text><text x="10" y="43">P</text><text id="tagPxHpOutP" x="35" y="43">54.0</text><text x="76" y="43">bar</text></g>
-          <g class="tag" transform="translate(790,350)"><rect width="98" height="58" rx="6"/><text x="10" y="21">Q</text><text id="tagCp" x="35" y="21">110</text><text x="72" y="21">m³/h</text><text x="10" y="43">P</text><text id="tagCpP" x="35" y="43">56.5</text><text x="76" y="43">bar</text></g>
-          <g class="tag" transform="translate(788,444)"><rect width="100" height="58" rx="6"/><text x="10" y="21">Q</text><text id="tagPxHpIn" x="35" y="21">110</text><text x="72" y="21">m³/h</text><text x="10" y="43">P</text><text id="tagRejectP" x="35" y="43">55.0</text><text x="76" y="43">bar</text></g>
-          <g class="tag" transform="translate(1070,252)"><rect width="88" height="58" rx="6"/><text x="10" y="21">Q</text><text id="tagPerm" x="35" y="21">50</text><text x="68" y="21">m³/h</text><text x="10" y="43">P</text><text x="35" y="43">0.5</text><text x="68" y="43">bar</text></g>
-        </g>
-      </svg>
+          <g transform="translate(700,338)">
+            <circle cx="50" cy="40" r="32" fill="#0877e2" stroke="#48caff" stroke-width="3"/>
+            <circle cx="50" cy="40" r="14" fill="#0451a9" stroke="#68d6ff" stroke-width="2"/>
+            <rect x="39" y="0" width="22" height="13" rx="3" fill="#8fdfff" stroke="#43b5e9"/>
+            <text class="eq-title" x="50" y="-25" text-anchor="middle">Circulation Pump</text><text class="eq-title" x="50" y="-8" text-anchor="middle">(CP)</text>
+            <text class="freq-tag" x="50" y="90" text-anchor="middle">50 Hz</text>
+          </g>
+
+          <path class="feed-pipe" d="M782 378 H830 V158 H920" marker-end="url(#blueArrow)"/>
+
+          <g>
+            <rect x="915" y="72" width="225" height="300" rx="10" fill="#041624" stroke="#6d93a7" stroke-width="1.5" stroke-dasharray="7 5"/>
+            <text class="eq-title" x="1028" y="96" text-anchor="middle">RO Train</text><text class="eq-title" x="1028" y="114" text-anchor="middle">(1 Pass / 1 Stage)</text><text class="pipe-sub" x="1028" y="132" text-anchor="middle">3 Pressure Vessels Online</text>
+            <g transform="translate(952,152)"><rect x="0" y="0" width="150" height="42" rx="20" fill="url(#vesselBlue)" stroke="#9ee0ff" stroke-width="2"/><rect x="-9" y="10" width="12" height="22" rx="3" fill="#d6eef8" stroke="#72bddd"/><rect x="147" y="10" width="12" height="22" rx="3" fill="#d6eef8" stroke="#72bddd"/></g>
+            <g transform="translate(952,225)"><rect x="0" y="0" width="150" height="42" rx="20" fill="url(#vesselBlue)" stroke="#9ee0ff" stroke-width="2"/><rect x="-9" y="10" width="12" height="22" rx="3" fill="#d6eef8" stroke="#72bddd"/><rect x="147" y="10" width="12" height="22" rx="3" fill="#d6eef8" stroke="#72bddd"/></g>
+            <g transform="translate(952,298)"><rect x="0" y="0" width="150" height="42" rx="20" fill="url(#vesselBlue)" stroke="#9ee0ff" stroke-width="2"/><rect x="-9" y="10" width="12" height="22" rx="3" fill="#d6eef8" stroke="#72bddd"/><rect x="147" y="10" width="12" height="22" rx="3" fill="#d6eef8" stroke="#72bddd"/></g>
+            <path class="feed-pipe thin" d="M920 158 H943"/><path class="feed-pipe thin" d="M920 158 V246 H943"/><path class="feed-pipe thin" d="M920 158 V319 H943"/>
+          </g>
+
+          <path class="perm-pipe" d="M1111 173 H1132 V245 H1150" marker-end="url(#cyanArrow)"/><path class="perm-pipe thin" d="M1111 246 H1132"/><path class="perm-pipe thin" d="M1111 319 H1132"/>
+          <text class="eq-title" x="1114" y="210">Permeate</text><text class="pipe-sub" x="1114" y="227">(to Post Treatment)</text>
+
+          <path class="reject-pipe" d="M1095 340 V455 H610 V408" marker-end="url(#orangeArrow)"/><text class="reject-label" x="840" y="432">RO Reject to PX HP IN</text>
+          <path class="reject-pipe" d="M1117 340 V515 H1147" marker-end="url(#orangeArrow)"/><text class="reject-label" x="1015" y="497">Vessel Reject</text><text class="reject-sub" x="1015" y="512">(LP Reject)</text>
+          <path class="reject-pipe" d="M470 408 V515 H1147" marker-end="url(#orangeArrow)"/><text class="reject-label" x="365" y="465">PX LP OUT</text><text class="reject-sub" x="365" y="480">(to Reject)</text><text class="eq-title reject-color" x="1020" y="548">To Reject / Drain</text>
+
+          <g id="valueTags">
+            <g class="tag" transform="translate(220,165)"><rect width="95" height="70" rx="6"/><text x="10" y="22">Q</text><text id="tagFeed" x="35" y="22">188</text><text x="70" y="22">m³/h</text><text x="10" y="43">P</text><text id="tagFeedP" x="35" y="43">0.5</text><text x="70" y="43">bar</text><text x="10" y="63">DP</text><text x="42" y="63">0.1</text></g>
+            <g class="tag" transform="translate(565,103)"><rect width="98" height="58" rx="6"/><text x="10" y="21">Q</text><text id="tagHpp" x="35" y="21">78</text><text x="72" y="21">m³/h</text><text x="10" y="43">P</text><text id="tagHppP" x="35" y="43">56.5</text><text x="76" y="43">bar</text></g>
+            <g class="tag" transform="translate(302,365)"><rect width="100" height="58" rx="6"/><text x="10" y="21">Q</text><text id="tagPxLpIn" x="35" y="21">110</text><text x="72" y="21">m³/h</text><text x="10" y="43">P</text><text id="tagPxLpInP" x="35" y="43">0.5</text><text x="76" y="43">bar</text></g>
+            <g class="tag" transform="translate(610,388)"><rect width="100" height="58" rx="6"/><text x="10" y="21">Q</text><text id="tagPxHpOut" x="35" y="21">110</text><text x="72" y="21">m³/h</text><text x="10" y="43">P</text><text id="tagPxHpOutP" x="35" y="43">54.0</text><text x="76" y="43">bar</text></g>
+            <g class="tag" transform="translate(790,350)"><rect width="98" height="58" rx="6"/><text x="10" y="21">Q</text><text id="tagCp" x="35" y="21">110</text><text x="72" y="21">m³/h</text><text x="10" y="43">P</text><text id="tagCpP" x="35" y="43">56.5</text><text x="76" y="43">bar</text></g>
+            <g class="tag" transform="translate(788,444)"><rect width="100" height="58" rx="6"/><text x="10" y="21">Q</text><text id="tagPxHpIn" x="35" y="21">110</text><text x="72" y="21">m³/h</text><text x="10" y="43">P</text><text id="tagRejectP" x="35" y="43">55.0</text><text x="76" y="43">bar</text></g>
+            <g class="tag" transform="translate(1070,252)"><rect width="88" height="58" rx="6"/><text x="10" y="21">Q</text><text id="tagPerm" x="35" y="21">50</text><text x="68" y="21">m³/h</text><text x="10" y="43">P</text><text x="35" y="43">0.5</text><text x="68" y="43">bar</text></g>
+          </g>
+        </svg>
+      </div>
+
+      <aside class="balance-panel">
+        <div class="panel-head"><h2>Flow Balancing</h2><span id="balanceBadge" class="badge ok">✓ Mass Balance OK</span></div>
+        <div id="balanceTable" class="balance-table"></div>
+        <div class="edit-box">
+          <label><span>PX HP IN</span><div><input id="pxHpIn" type="number" value="110" step="0.1"><b>m³/h</b></div></label>
+          <label><span>Feed Pressure</span><div><input id="feedPressure" type="number" value="0.5" step="0.1"><b>bar</b></div></label>
+          <label><span>RO Header Pressure</span><div><input id="roPressure" type="number" value="56.5" step="0.1"><b>bar</b></div></label>
+          <label><span>RO Reject Pressure</span><div><input id="rejectPressure" type="number" value="55" step="0.1"><b>bar</b></div></label>
+          <label><span>PX Pressure Efficiency</span><div><input id="pxPressureEff" type="number" value="97" step="0.1"><b>%</b></div></label>
+          <label><span>HPP Efficiency</span><div><input id="hppEff" type="number" value="78" step="0.1"><b>%</b></div></label>
+          <label><span>CP Efficiency</span><div><input id="cpEff" type="number" value="75" step="0.1"><b>%</b></div></label>
+        </div>
+        <div id="balanceMessage" class="balance-message"></div>
+      </aside>
+    </section>
+
+    <section class="bottom-grid">
+      <article class="summary-card"><div class="summary-head"><h2>Flow Summary</h2><span class="badge calc">Calculated</span></div><div id="flowSummary" class="summary-table"></div></article>
+      <article class="summary-card"><div class="summary-head"><h2>Energy System</h2></div><div id="energySummary" class="summary-table"></div></article>
+      <article class="summary-card">
+        <div class="summary-head"><h2>Water Quality (Calculated)</h2></div>
+        <div class="quality-inputs">
+          <label><span>Feed TDS</span><input id="feedTds" type="number" value="2800"></label>
+          <label><span>Salt Rejection</span><input id="saltRejection" type="number" value="98.2" step="0.1"></label>
+          <label><span>Temperature</span><input id="temperature" type="number" value="28" step="0.1"></label>
+        </div>
+        <div id="qualitySummary" class="summary-table"></div>
+      </article>
+    </section>
+  </section>
+
+  <section id="view-dashboard" class="view">
+    <div class="page-head"><div><h1>Engineering Dashboard</h1><p>Current design health, calculated performance and diagnostic status.</p></div></div>
+    <div class="kpi-grid" id="dashboardKpis"></div>
+    <div class="module-grid">
+      <article class="module-card"><h2>Active Design</h2><div id="dashboardDesign" class="summary-table"></div></article>
+      <article class="module-card"><h2>System Status</h2><div id="dashboardStatus" class="status-list"></div></article>
+      <article class="module-card"><h2>Quick Actions</h2><div class="action-grid"><button data-view-jump="process">Open Process Flow</button><button data-view-jump="membrane">Membrane Design</button><button data-view-jump="troubleshooting">Run Troubleshooting</button><button data-view-jump="reports">Generate Report</button></div></article>
+    </div>
+  </section>
+
+  <section id="view-membrane" class="view">
+    <div class="page-head"><div><h1>Membrane Design</h1><p>Preliminary vessel, element, membrane-area and flux sizing linked to the process-flow case.</p></div><span class="badge calc">Live Calculation</span></div>
+    <div class="design-grid">
+      <article class="module-card">
+        <h2>Design Inputs</h2>
+        <div class="form-grid">
+          <label><span>Pressure Vessels</span><input id="mdVessels" type="number" value="3" min="1"></label>
+          <label><span>Elements / Vessel</span><input id="mdElements" type="number" value="7" min="1"></label>
+          <label><span>Membrane Area / Element</span><div><input id="mdArea" type="number" value="37.2" step="0.1"><b>m²</b></div></label>
+          <label><span>Feed Flow</span><div><input id="mdFeed" type="number" value="188" step="0.1"><b>m³/h</b></div></label>
+          <label><span>Recovery</span><div><input id="mdRecovery" type="number" value="26.6" step="0.1"><b>%</b></div></label>
+          <label><span>Stage Arrangement</span><select id="mdStage"><option>1 Pass / 1 Stage</option><option>1 Pass / 2 Stage</option></select></label>
+          <label class="wide"><span>Membrane Type</span><select id="mdMembrane"><option>SWRO High Rejection - 400 ft² class</option><option>SWRO High Productivity - 400 ft² class</option><option>Custom / Vendor Selected</option></select></label>
+        </div>
+        <button class="tool-btn primary" id="syncMembraneToProcess">Use in Process Flow</button>
+      </article>
+      <article class="module-card"><h2>Calculated Design</h2><div id="membraneResults" class="summary-table"></div></article>
+      <article class="module-card"><h2>Design Checks</h2><div id="membraneWarnings" class="diagnostic-stack"></div></article>
+    </div>
+  </section>
+
+  <section id="view-troubleshooting" class="view">
+    <div class="page-head"><div><h1>Troubleshooting</h1><p>Selectable, deterministic diagnosis. No free-text fault description is required.</p></div><span id="alarmSummaryBadge" class="badge ok">No active threshold alarms</span></div>
+
+    <div class="subtabs">
+      <button class="active" data-trouble-tab="guided">Guided Diagnosis</button>
+      <button data-trouble-tab="balance">Flow Balancing</button>
+      <button data-trouble-tab="alarms">Abnormal Parameter Detection</button>
     </div>
 
-    <aside class="balance-panel">
-      <div class="panel-head"><h2>Flow Balancing</h2><span id="balanceBadge" class="badge ok">✓ Mass Balance OK</span></div>
-      <div id="balanceTable" class="balance-table"></div>
-      <div class="edit-box">
-        <label><span>PX HP IN</span><div><input id="pxHpIn" type="number" value="110" step="0.1"><b>m³/h</b></div></label>
-        <label><span>Feed Pressure</span><div><input id="feedPressure" type="number" value="0.5" step="0.1"><b>bar</b></div></label>
-        <label><span>RO Header Pressure</span><div><input id="roPressure" type="number" value="56.5" step="0.1"><b>bar</b></div></label>
-        <label><span>RO Reject Pressure</span><div><input id="rejectPressure" type="number" value="55" step="0.1"><b>bar</b></div></label>
-        <label><span>PX Pressure Efficiency</span><div><input id="pxPressureEff" type="number" value="97" step="0.1"><b>%</b></div></label>
-        <label><span>HPP Efficiency</span><div><input id="hppEff" type="number" value="78" step="0.1"><b>%</b></div></label>
-        <label><span>CP Efficiency</span><div><input id="cpEff" type="number" value="75" step="0.1"><b>%</b></div></label>
+    <div id="trouble-guided" class="trouble-pane active">
+      <div class="trouble-layout">
+        <article class="module-card">
+          <h2>1. Select Area</h2>
+          <div id="troubleCategories" class="category-grid"></div>
+          <h2>2. Select Symptom</h2>
+          <select id="troubleSymptom" class="full-select"></select>
+          <div id="trendBlock" class="trend-block hidden">
+            <h2>3. Select Pre-trip Trend</h2>
+            <select id="troubleBranch" class="full-select"></select>
+          </div>
+          <button class="tool-btn primary full-btn" id="runDiagnostic">Run Diagnostic</button>
+        </article>
+        <article class="module-card diagnostic-output">
+          <div class="summary-head"><h2 id="diagnosticTitle">Guided Diagnosis</h2><span class="badge calc">Deterministic</span></div>
+          <div id="diagnosticResult" class="diagnostic-stack"><div class="empty-state">Choose an area and symptom to generate verification steps, likely causes and corrective actions.</div></div>
+        </article>
       </div>
-      <div id="balanceMessage" class="balance-message"></div>
-    </aside>
+    </div>
+
+    <div id="trouble-balance" class="trouble-pane">
+      <div class="page-note">Enter measured flows. The checks below separate measurement / bypass problems from a genuine PX or hydraulic fault before equipment is blamed.</div>
+      <div class="balance-diagnostic-grid">
+        <article class="module-card">
+          <h2>Measured Flows</h2>
+          <div class="form-grid compact">
+            <label><span>Total Feed</span><div><input id="mFeed" type="number" value="188"><b>m³/h</b></div></label>
+            <label><span>HPP Branch</span><div><input id="mHpp" type="number" value="78"><b>m³/h</b></div></label>
+            <label><span>PX LP IN</span><div><input id="mPxLpIn" type="number" value="110"><b>m³/h</b></div></label>
+            <label><span>RO Feed Header</span><div><input id="mRoFeed" type="number" value="188"><b>m³/h</b></div></label>
+            <label><span>PX HP OUT</span><div><input id="mPxHpOut" type="number" value="110"><b>m³/h</b></div></label>
+            <label><span>Permeate</span><div><input id="mPerm" type="number" value="50"><b>m³/h</b></div></label>
+            <label><span>PX HP IN</span><div><input id="mPxHpIn" type="number" value="110"><b>m³/h</b></div></label>
+            <label><span>PX LP OUT</span><div><input id="mPxLpOut" type="number" value="110"><b>m³/h</b></div></label>
+            <label><span>Direct Vessel Reject</span><div><input id="mDirectReject" type="number" value="28"><b>m³/h</b></div></label>
+            <label><span>Balance Tolerance</span><div><input id="mTolerance" type="number" value="3" min="0.1" step="0.1"><b>%</b></div></label>
+          </div>
+          <button class="tool-btn primary full-btn" id="runFlowBalance">Check Measured Balance</button>
+        </article>
+        <article class="module-card"><h2>Balance Checks</h2><div id="measuredBalanceResults" class="diagnostic-stack"></div></article>
+      </div>
+    </div>
+
+    <div id="trouble-alarms" class="trouble-pane">
+      <div class="alarm-grid">
+        <article class="module-card">
+          <h2>Current / Observed Parameters</h2>
+          <div class="form-grid compact">
+            <label><span>Module Inlet Pressure</span><div><input id="alarmModuleP" type="number" value="56.5"><b>bar</b></div></label>
+            <label><span>RO Module DP</span><div><input id="alarmModuleDp" type="number" value="1.5"><b>bar</b></div></label>
+            <label><span>PX DP</span><div><input id="alarmPxDp" type="number" value="1.0"><b>bar</b></div></label>
+            <label><span>Product Conductivity</span><div><input id="alarmProductCond" type="number" value="80"><b>µS/cm</b></div></label>
+            <label><span>HPP Ref.</span><div><input id="alarmHppRef" type="number" value="50"><b>Hz</b></div></label>
+            <label><span>HPP Actual</span><div><input id="alarmHppAct" type="number" value="50"><b>Hz</b></div></label>
+            <label><span>CP Ref.</span><div><input id="alarmCpRef" type="number" value="50"><b>Hz</b></div></label>
+            <label><span>CP Actual</span><div><input id="alarmCpAct" type="number" value="50"><b>Hz</b></div></label>
+          </div>
+          <button class="tool-btn primary full-btn" id="scanAlarms">Detect Abnormal Parameters</button>
+        </article>
+        <article class="module-card"><h2>Detection Results</h2><div id="alarmResults" class="diagnostic-stack"></div></article>
+      </div>
+    </div>
   </section>
 
-  <section class="bottom-grid">
-    <article class="summary-card">
-      <div class="summary-head"><h2>Flow Summary</h2><span class="badge calc">Calculated</span></div>
-      <div id="flowSummary" class="summary-table"></div>
-    </article>
+  <section id="view-energy" class="view">
+    <div class="page-head"><div><h1>Energy System</h1><p>HPP, CP and PX energy-recovery calculations linked to the active process case.</p></div></div>
+    <div class="kpi-grid" id="energyKpis"></div>
+    <div class="module-grid two">
+      <article class="module-card"><h2>Operating Inputs</h2><div id="energyInputsSummary" class="summary-table"></div></article>
+      <article class="module-card"><h2>Energy Breakdown</h2><div id="energyDetail" class="summary-table"></div></article>
+    </div>
+  </section>
 
-    <article class="summary-card">
-      <div class="summary-head"><h2>Energy System</h2></div>
-      <div id="energySummary" class="summary-table"></div>
-    </article>
+  <section id="view-performance" class="view">
+    <div class="page-head"><div><h1>Performance</h1><p>Compare actual plant operation against the selected design case.</p></div></div>
+    <div class="performance-grid">
+      <article class="module-card">
+        <h2>Actual Operating Data</h2>
+        <div class="form-grid compact">
+          <label><span>Actual Feed</span><div><input id="pfFeed" type="number" value="188"><b>m³/h</b></div></label>
+          <label><span>Actual Permeate</span><div><input id="pfPerm" type="number" value="50"><b>m³/h</b></div></label>
+          <label><span>Actual RO Pressure</span><div><input id="pfPressure" type="number" value="56.5"><b>bar</b></div></label>
+          <label><span>Actual Module DP</span><div><input id="pfDp" type="number" value="1.5"><b>bar</b></div></label>
+          <label><span>Actual Product TDS</span><div><input id="pfTds" type="number" value="50"><b>mg/L</b></div></label>
+          <label><span>Actual Power</span><div><input id="pfPower" type="number" value="305"><b>kW</b></div></label>
+        </div>
+        <button class="tool-btn primary full-btn" id="comparePerformance">Compare with Design</button>
+      </article>
+      <article class="module-card"><h2>Actual vs Design</h2><div id="performanceResults" class="summary-table"></div></article>
+      <article class="module-card"><h2>Performance Flags</h2><div id="performanceFlags" class="diagnostic-stack"></div></article>
+    </div>
+  </section>
 
-    <article class="summary-card">
-      <div class="summary-head"><h2>Water Quality (Calculated)</h2></div>
-      <div class="quality-inputs">
-        <label><span>Feed TDS</span><input id="feedTds" type="number" value="2800"></label>
-        <label><span>Salt Rejection</span><input id="saltRejection" type="number" value="98.2" step="0.1"></label>
-        <label><span>Temperature</span><input id="temperature" type="number" value="28" step="0.1"></label>
-      </div>
-      <div id="qualitySummary" class="summary-table"></div>
-    </article>
+  <section id="view-reports" class="view">
+    <div class="page-head"><div><h1>Reports</h1><p>Generate a concise engineering summary from the current design, performance and troubleshooting data.</p></div></div>
+    <div class="report-actions"><button class="tool-btn primary" id="generateReport">Generate Engineering Summary</button><button class="tool-btn" id="downloadCsv">Download CSV</button><button class="tool-btn" id="printReport">Print Report</button></div>
+    <article class="module-card report-preview"><h2>Engineering Summary</h2><div id="reportPreview" class="report-body"><div class="empty-state">Select “Generate Engineering Summary” to build the report.</div></div></article>
+  </section>
+
+  <section id="view-projects" class="view">
+    <div class="page-head"><div><h1>Projects</h1><p>Save and reopen engineering design cases using the connected Supabase project.</p></div><span id="dbStatus" class="badge calc">Not signed in</span></div>
+    <div class="project-grid">
+      <article class="module-card">
+        <h2>Account</h2>
+        <div class="form-grid one">
+          <label><span>Email</span><input id="authEmail" type="email" placeholder="name@example.com"></label>
+          <label><span>Password</span><input id="authPassword" type="password" placeholder="Password"></label>
+        </div>
+        <div class="inline-actions"><button class="tool-btn primary" id="signInBtn">Sign In</button><button class="tool-btn" id="signUpBtn">Create Account</button><button class="tool-btn danger" id="signOutBtn">Sign Out</button></div>
+        <div id="authMessage" class="balance-message"></div>
+      </article>
+      <article class="module-card">
+        <h2>Current Case</h2>
+        <div class="form-grid one"><label><span>Project Name</span><input id="saveProjectName" value="MWSC Borewell RO 1"></label><label><span>Case Name</span><input id="saveCaseName" value="Design Case 01 (Base)"></label></div>
+        <button class="tool-btn primary full-btn" id="saveProjectBtn">Save Current Design</button>
+      </article>
+      <article class="module-card project-list-card"><h2>Saved Projects</h2><div id="savedProjects" class="project-list"><div class="empty-state">Sign in to load saved projects.</div></div></article>
+    </div>
+  </section>
+
+  <section id="view-settings" class="view">
+    <div class="page-head"><div><h1>Settings & Diagnostic Thresholds</h1><p>Thresholds used by abnormal-parameter detection.</p></div></div>
+    <div class="settings-grid">
+      <article class="module-card">
+        <h2>Pressure / PX Alarms</h2>
+        <div class="form-grid one">
+          <label><span>Module Pressure Alarm</span><div><input id="setModulePAlarm" type="number" value="60"><b>bar</b></div></label>
+          <label><span>Module DP Alarm</span><div><input id="setModuleDpAlarm" type="number" value="3"><b>bar</b></div></label>
+          <label><span>PX DP Alarm / Reference</span><div><input id="setPxDpAlarm" type="number" value="2"><b>bar</b></div></label>
+        </div>
+      </article>
+      <article class="module-card">
+        <h2>Speed / Flow Deviation</h2>
+        <div class="form-grid one">
+          <label><span>VFD Reference vs Actual Warning</span><div><input id="setSpeedDev" type="number" value="2"><b>Hz</b></div></label>
+          <label><span>Flow Balance Warning</span><div><input id="setFlowBalance" type="number" value="3"><b>%</b></div></label>
+          <label><span>Performance Variance Warning</span><div><input id="setPerformance" type="number" value="10"><b>%</b></div></label>
+        </div>
+      </article>
+      <article class="module-card">
+        <h2>Notes</h2>
+        <div class="page-note">The troubleshooting engine prioritizes measurement verification before equipment fault assignment. For borewell feed, rising product conductivity is treated as a product-side / operating-condition issue first because feed conductivity is expected to remain comparatively stable.</div>
+      </article>
+    </div>
   </section>
 </main>
 </div>
+
+<script src="troubleshooting.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
