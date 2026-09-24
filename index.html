@@ -1,1 +1,121 @@
-<!doctype html><html><head><meta charset="utf-8"><title>RO Engineer</title></head><body><main><h1>RO Engineer</h1><p>Process Flow</p></main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RO Engineer</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+<header class="top">
+  <div class="brand">RO <span>Engineer</span></div>
+  <nav class="nav">
+    <button>Dashboard</button><button class="active">Process Flow</button><button>Membrane Design</button>
+    <button>Flow Balancing</button><button>Energy System</button><button>Performance</button><button>Reports</button>
+  </nav>
+  <div class="user">Process Engineer</div>
+</header>
+
+<aside class="side">
+  <button class="active">⌁ Process Flow</button>
+  <button>☷ Membrane Design</button>
+  <button>⚖ Flow Balancing</button>
+  <button>ϟ Energy System</button>
+  <button>⌁ Performance</button>
+  <button>▤ Reports</button>
+</aside>
+
+<main class="main">
+<section class="inputs">
+  <label class="field"><span>Project</span><select id="project"><option>MWSC Borewell RO 1</option><option>New RO Design</option></select></label>
+  <label class="field"><span>Case</span><select id="case"><option>Design Case 01 (Base)</option><option>Design Case 02</option></select></label>
+  <label class="field"><span>Design Feed (m³/h)</span><input id="feedFlow" type="number" value="188" step="0.1"></label>
+  <label class="field"><span>Recovery (%)</span><input id="recovery" type="number" value="26.6" step="0.1"></label>
+  <label class="field"><span>Water Type</span><select id="waterType"><option>Seawater</option><option>Brackish Water</option></select></label>
+</section>
+
+<section class="toolbar">
+  <button class="btn" id="autoPx">Auto PX Flow</button>
+  <button class="btn primary" id="calculateBtn">Calculate</button>
+  <div class="legend"><b style="color:#148dff">●</b> Feed / pressurised feed <b style="color:#ff982d">●</b> Reject / concentrate <b style="color:#58ddff">●</b> Permeate</div>
+</section>
+
+<section class="workspace">
+<div class="card">
+  <h2>Process Flow</h2>
+  <div class="flow-canvas">
+    <div class="equipment filter">Bag<br>Filter</div>
+    <div class="equipment hpp">HPP</div>
+    <div class="equipment px">Pressure Exchanger<br>(PX)</div>
+    <div class="equipment cp">CP</div>
+    <div class="robox"><div style="text-align:center;font-weight:700">RO Train</div><div class="vessel"></div><div class="vessel"></div><div class="vessel"></div></div>
+
+    <div class="flow-line blue" style="left:1%;top:46%;width:10%"></div>
+    <div class="flow-line blue" style="left:16%;top:46%;width:8%"></div>
+    <div class="flow-line blue" style="left:24%;top:28%;width:10%;transform:rotate(-35deg);transform-origin:left center"></div>
+    <div class="flow-line blue" style="left:41%;top:28%;width:33%"></div>
+    <div class="flow-line blue" style="left:24%;top:63%;width:9%;transform:rotate(32deg);transform-origin:left center"></div>
+    <div class="flow-line blue" style="left:48%;top:66%;width:11%"></div>
+    <div class="flow-line blue" style="left:65%;top:62%;width:10%;transform:rotate(-41deg);transform-origin:left center"></div>
+
+    <div class="flow-line cyan" style="left:96%;top:38%;width:4%"></div>
+
+    <div class="flow-line orange" style="left:44%;top:84%;width:48%"></div>
+    <div class="flow-line orange" style="left:88%;top:67%;width:7%;transform:rotate(90deg);transform-origin:left center"></div>
+    <div class="flow-line orange" style="left:39%;top:72%;width:12%;transform:rotate(90deg);transform-origin:left center"></div>
+
+    <div class="label" style="left:2%;top:39%">Feed Water</div>
+    <div class="label" style="left:28%;top:18%">To HPP</div>
+    <div class="label" style="left:48%;top:21%">HPP OUT → RO inlet header</div>
+    <div class="label" style="left:24%;top:70%">PX LP IN</div>
+    <div class="label" style="left:49%;top:70%">PX HP OUT → CP</div>
+    <div class="label" style="left:67%;top:53%">CP OUT</div>
+    <div class="label" style="left:76%;top:9%">RO Inlet Header</div>
+    <div class="label" style="left:94%;top:33%;color:#58ddff">Permeate</div>
+    <div class="label" style="left:63%;top:87%;color:#ffb56e">RO Reject → PX HP IN</div>
+    <div class="label" style="left:34%;top:91%;color:#ffb56e">PX LP OUT → Reject</div>
+    <div class="label" style="left:85%;top:91%;color:#ffb56e">Direct vessel reject</div>
+
+    <div class="value" style="left:6%;top:51%" id="vFeed">188 m³/h</div>
+    <div class="value" style="left:48%;top:31%" id="vHpp">78 m³/h</div>
+    <div class="value" style="left:24%;top:77%" id="vPx">110 m³/h</div>
+    <div class="value" style="left:91%;top:42%" id="vPerm">50 m³/h</div>
+    <div class="value" style="left:73%;top:89%" id="vReject">138 m³/h</div>
+  </div>
+</div>
+
+<aside class="card">
+  <h2>Flow Balancing</h2>
+  <div class="ctrls">
+    <label><span>PX HP IN (m³/h)</span><input id="pxHpIn" type="number" value="110" step="0.1"></label>
+    <label><span>Feed Pressure (bar)</span><input id="feedPressure" type="number" value="0.5" step="0.1"></label>
+    <label><span>RO Header Pressure (bar)</span><input id="roPressure" type="number" value="56.5" step="0.1"></label>
+    <label><span>RO Reject Pressure (bar)</span><input id="rejectPressure" type="number" value="55" step="0.1"></label>
+    <label><span>PX Pressure Efficiency (%)</span><input id="pxPressureEff" type="number" value="97" step="0.1"></label>
+    <label><span>HPP Efficiency (%)</span><input id="hppEff" type="number" value="78" step="0.1"></label>
+    <label><span>CP Efficiency (%)</span><input id="cpEff" type="number" value="75" step="0.1"></label>
+  </div>
+  <div id="balanceTable" class="rows"></div>
+  <div id="balanceMessage" class="message"></div>
+</aside>
+</section>
+
+<section class="summary">
+<div class="card"><h2>Flow Summary</h2><div id="flowSummary" class="rows"></div></div>
+<div class="card"><h2>Energy System</h2><div id="energySummary" class="rows"></div></div>
+<div class="card">
+  <h2>Water Quality</h2>
+  <div class="ctrls">
+    <label><span>Feed TDS (mg/L)</span><input id="feedTds" type="number" value="2800"></label>
+    <label><span>Salt Rejection (%)</span><input id="saltRejection" type="number" value="98.2" step="0.1"></label>
+    <label><span>Temperature (°C)</span><input id="temperature" type="number" value="28" step="0.1"></label>
+  </div>
+  <div id="qualitySummary" class="rows"></div>
+</div>
+</section>
+</main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
