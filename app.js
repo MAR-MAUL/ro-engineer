@@ -764,3 +764,5 @@ renderTroubleResult=function(){
   _oldRenderTroubleResult();
   updateAiContext();
 };
+
+updateAiContext();
