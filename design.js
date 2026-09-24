@@ -288,7 +288,7 @@ function renderInspector(){
 function renderResults(){
   var t=templates[activeTemplate],vals=streamValues();
   var head='<thead><tr><th>Stream</th>'+t.edges.map(function(e){return '<th>'+e.name+'</th>';}).join('')+'</tr></thead>';
-  function row(name,key,unit,d){return '<tr><td>'+name+'</td>'+t.edges.map(function(e){var v=vals[e.id]||{};return '<td>'+fmt(v[key],d)+' '+(unit||'')+'</td>';}).join('')+'</tr>';}
+  function row(name,key,unit,d){return '<tr><td>'+name+'</td>'+t.edges.map(function(e){var v=vals[e.id]||{};var value=key==='temp'?last.temp:v[key];return '<td>'+fmt(value,d)+' '+(unit||'')+'</td>';}).join('')+'</tr>';}
   $('dStreamTable').innerHTML=head+'<tbody>'+row('Flow','q','',1)+row('Pressure','p','',1)+row('TDS','tds','',0)+row('Temperature','temp','',1)+'</tbody>';
 
   var checks=[],water=$('dWaterType').value;
