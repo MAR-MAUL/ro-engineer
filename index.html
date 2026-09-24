@@ -150,6 +150,10 @@
           <option value="recycle">Concentrate Recirculation</option>
         </select>
       </label>
+      <button class="designer-tool" id="dArrangeLayout">✥ Arrange</button>
+      <button class="designer-tool save-layout-btn" id="dSaveLayout">✓ Save layout</button>
+      <button class="designer-tool" id="dResetLayout">↺ Reset</button>
+      <span class="layout-status" id="dLayoutStatus">Layout editing</span>
     </div>
     <div class="designer-tool-group">
       <label class="designer-toggle"><input id="dShowValues" type="checkbox" checked><span></span>Stream values</label>
@@ -192,7 +196,7 @@
 
   <div class="designer-canvas-shell static-canvas-shell">
     <div class="designer-canvas-head">
-      <div><b id="dCanvasTitle">SWRO + PX</b><small>Static process view · calculated stream values update automatically</small></div>
+      <div><b id="dCanvasTitle">SWRO + PX</b><small>Move equipment and stream labels while arranging · save to lock the layout</small></div>
       <div class="canvas-legend"><span class="feed-line-key"></span>Feed / HP <span class="reject-line-key"></span>Reject <span class="product-line-key"></span>Product</div>
     </div>
     <div class="designer-canvas" id="designCanvas">
@@ -242,8 +246,8 @@
           <div class="fb-visual-canvas">
             <svg class="fb-links" viewBox="0 0 980 390" preserveAspectRatio="none" aria-hidden="true">
               <defs>
-                <marker id="fbBlueArrow" markerWidth="5" markerHeight="5" refX="4.6" refY="2.5" orient="auto"><path d="M0,0 L0,5 L5,2.5 z" fill="#5677d8"/></marker>
-                <marker id="fbOrangeArrow" markerWidth="5" markerHeight="5" refX="4.6" refY="2.5" orient="auto"><path d="M0,0 L0,5 L5,2.5 z" fill="#ea755f"/></marker>
+                <marker id="fbBlueArrow" markerWidth="3" markerHeight="3" refX="2.8" refY="1.5" orient="auto"><path d="M0,0 L0,3 L3,1.5 z" fill="#5677d8"/></marker>
+                <marker id="fbOrangeArrow" markerWidth="3" markerHeight="3" refX="2.8" refY="1.5" orient="auto"><path d="M0,0 L0,3 L3,1.5 z" fill="#ea755f"/></marker>
                 <marker id="fbGreenArrow" markerWidth="5" markerHeight="5" refX="4.6" refY="2.5" orient="auto"><path d="M0,0 L0,5 L5,2.5 z" fill="#45b7a4"/></marker>
               </defs>
               <path class="fb-path feed" d="M100 190 H205" marker-end="url(#fbBlueArrow)"/>
