@@ -175,6 +175,7 @@
       <button data-focus-node="dose"><i>+</i><small>Dosing</small></button>
       <button data-focus-node="split"><i>Y</i><small>Split</small></button>
       <button data-focus-node="hpp"><i>▶</i><small>HPP</small></button>
+      <button data-focus-node="cp"><i>▶</i><small>CP</small></button>
       <button data-focus-node="blend"><i>◇</i><small>Blend</small></button>
       <button data-focus-node="ro"><i>RO</i><small>RO Train</small></button>
       <button data-focus-node="px"><i>↻</i><small>PX</small></button>
@@ -255,24 +256,35 @@
 
         <article class="panel">
           <div class="panel-head"><div><span class="eyebrow">BALANCE MAP</span><h2>Measured flow relationships</h2></div></div>
-          <div class="balance-map">
-            <div class="flow-node feed"><small>Total Feed</small><strong id="mapFeed">188</strong><span>m³/h</span></div>
-            <div class="split-line"></div>
-            <div class="branch-row">
-              <div class="flow-node"><small>HPP Branch</small><strong id="mapHpp">78</strong><span>m³/h</span></div>
-              <div class="plus">+</div>
-              <div class="flow-node"><small>PX LP IN</small><strong id="mapLpIn">110</strong><span>m³/h</span></div>
-            </div>
-            <div class="arrow-down">↓</div>
-            <div class="flow-node ro"><small>RO Feed Header</small><strong id="mapRoFeed">188</strong><span>m³/h</span></div>
-            <div class="arrow-down">↓</div>
-            <div class="branch-row three">
-              <div class="flow-node product"><small>Permeate</small><strong id="mapPerm">50</strong><span>m³/h</span></div>
-              <div class="plus">+</div>
-              <div class="flow-node reject"><small>PX HP IN</small><strong id="mapHpIn">110</strong><span>m³/h</span></div>
-              <div class="plus">+</div>
-              <div class="flow-node reject"><small>Direct Reject</small><strong id="mapDirect">28</strong><span>m³/h</span></div>
-            </div>
+          <div class="fb-visual-canvas">
+            <svg class="fb-links" viewBox="0 0 980 390" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <marker id="fbBlueArrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5677d8"/></marker>
+                <marker id="fbOrangeArrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#ea755f"/></marker>
+                <marker id="fbGreenArrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#45b7a4"/></marker>
+              </defs>
+              <path class="fb-path feed" d="M100 190 H205" marker-end="url(#fbBlueArrow)"/>
+              <path class="fb-path feed" d="M260 170 V90 H365" marker-end="url(#fbBlueArrow)"/>
+              <path class="fb-path feed" d="M260 210 V300 H365" marker-end="url(#fbBlueArrow)"/>
+              <path class="fb-path feed" d="M475 90 H610" marker-end="url(#fbBlueArrow)"/>
+              <path class="fb-path feed" d="M475 300 H530" marker-end="url(#fbBlueArrow)"/>
+              <path class="fb-path feed" d="M640 300 H665 V130 H720" marker-end="url(#fbBlueArrow)"/>
+              <path class="fb-path product" d="M830 130 H930" marker-end="url(#fbGreenArrow)"/>
+              <path class="fb-path reject" d="M780 165 V270 H475 V300" marker-end="url(#fbOrangeArrow)"/>
+              <path class="fb-path reject" d="M420 335 V360 H900" marker-end="url(#fbOrangeArrow)"/>
+              <path class="fb-path reject" d="M805 165 V345 H900" marker-end="url(#fbOrangeArrow)"/>
+            </svg>
+
+            <button class="fb-node feed-node" data-fb-focus="fbFeed" style="left:25px;top:155px"><small>Total Feed</small><strong id="mapFeed">188</strong><span>m³/h</span></button>
+            <button class="fb-node split-node" data-fb-focus="fbHpp" style="left:205px;top:155px"><small>Split</small><strong>HPP / PX</strong><span>feed division</span></button>
+            <button class="fb-node" data-fb-focus="fbHpp" style="left:365px;top:55px"><small>HPP Branch</small><strong id="mapHpp">78</strong><span>m³/h</span></button>
+            <button class="fb-node px-node" data-fb-focus="fbLpIn" style="left:365px;top:265px"><small>PX</small><strong id="mapLpIn">110</strong><span>LP IN m³/h</span></button>
+            <button class="fb-node cp-node" data-fb-focus="fbHpOut" style="left:530px;top:265px"><small>CP / PX HP OUT</small><strong id="mapPxOut">110</strong><span>m³/h</span></button>
+            <button class="fb-node rofeed-node" data-fb-focus="fbRoFeed" style="left:610px;top:95px"><small>RO Feed Header</small><strong id="mapRoFeed">188</strong><span>m³/h</span></button>
+            <button class="fb-node ro-node" data-fb-focus="fbRoFeed" style="left:720px;top:95px"><small>RO Train</small><strong>Balance</strong><span>feed → product + reject</span></button>
+            <button class="fb-node product-node" data-fb-focus="fbPerm" style="left:860px;top:55px"><small>Permeate</small><strong id="mapPerm">50</strong><span>m³/h</span></button>
+            <button class="fb-node reject-node" data-fb-focus="fbHpIn" style="left:690px;top:260px"><small>PX HP IN</small><strong id="mapHpIn">110</strong><span>m³/h</span></button>
+            <button class="fb-node reject-node" data-fb-focus="fbDirect" style="left:830px;top:300px"><small>Direct Reject</small><strong id="mapDirect">28</strong><span>m³/h</span></button>
           </div>
         </article>
       </div>
