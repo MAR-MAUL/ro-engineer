@@ -1,768 +1,304 @@
 
-const $ = id => document.getElementById(id);
-const $$ = sel => Array.from(document.querySelectorAll(sel));
-const num = id => Number($(id)?.value || 0);
-const fmt = (v,d=1) => Number.isFinite(v) ? v.toFixed(d) : "—";
-const clamp = (v,a,b) => Math.min(b,Math.max(a,v));
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s);};
+var $$=function(s){return Array.prototype.slice.call(document.querySelectorAll(s));};
+var byId=function(id){return document.getElementById(id);};
+var n=function(id){var e=byId(id);return e?Number(e.value||0):0;};
+var fmt=function(v,d){d=d===undefined?1:d;return Number.isFinite(Number(v))?Number(v).toFixed(d):'—';};
+var esc=function(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
 
-const SUPABASE_URL = "https://xjugyixmnpnwatapqzpd.supabase.co";
-const SUPABASE_KEY = "sb_publishable_r1GSjkdRmC91hJBtaYkD_Q_vD952_yC";
-const db = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+var T={lowInlet:1.5,lowRaw:2.5,lowFeed:150,lowBooster:85,highModule:60,highModuleDp:3,pxDp:2,bagDp:1.1,productPhHigh:7};
 
-let currentUser = null;
-let lastCalc = null;
-let lastMembrane = null;
-let lastDiagnostic = null;
-let lastAlarmScan = [];
-let currentTroubleCategory = "pressure";
-let currentTroubleSymptom = "module_pressure_rising";
-let currentTroubleBranch = null;
-let svgZoom = 1;
+var alarms=[
+{id:'low-inlet',group:'Pressure',severity:'warning',tag:'PIT 3 / PIT 7',title:'Low inlet pressure',trigger:'Feed pressure below 1.5 bar',short:'Verify pressure measurement, borehole/network pressure and bypass position.',causes:['Pressure transmitter fault','Low network pressure','Bypass valve'],engineering:'low-inlet',procedure:['Check the condition of the pressure transmitter.','Compare SCADA pressure with the pressure transmitter/local indication.','Check the status of boreholes in operation.','Increase the number of boreholes in operation when low network pressure is confirmed.','Confirm the bypass valve is closed.','Inform the supervisor if the fault cannot be rectified.']},
+{id:'low-feed',group:'Flow',severity:'warning',tag:'FIT01',title:'Low feed flow',trigger:'Feed flow below 150 m³/h',short:'Check feed valve, source pressure and the feed flowmeter.',causes:['Feed valve / micro-switch fault','Low network pressure','Flowmeter fault'],engineering:'generic',procedure:['Make sure the feed valve is fully opened.','If network pressure is low, increase the number of boreholes in operation.','Compare SCADA flow with the local flowmeter.','Check the condition of the flowmeter.','Inform the supervisor if the fault cannot be rectified.']},
+{id:'low-booster',group:'Flow',severity:'warning',tag:'FIT03 / FIT05',title:'Low booster flow',trigger:'Booster flow below 85 m³/h',short:'Check startup condition, flowmeter, PX condition and circulation pump.',causes:['Initial operation condition','Flowmeter fault','Pressure exchanger fault','Circulation pump fault'],engineering:'low-booster',procedure:['If this occurs during initial operation, check membrane differential pressure before changing any temporary setpoint.','Compare SCADA flow with the local flowmeter and check the flowmeter condition.','Check pressure-exchanger noise.','Check PX differential pressure; the alarm guide states it should be below 2 bar.','Check pressure-exchanger reject conductivity.','Check circulation-pump VFD status and current.','Record findings and inform the supervisor.']},
+{id:'high-module',group:'Pressure',severity:'shutdown',tag:'PIT04',title:'High module feed pressure',trigger:'Module feed pressure reaches 60 bar',short:'Confirm the pressure, then distinguish RO resistance from reject-side backpressure.',causes:['Pressure transmitter fault','Pressure exchanger fault','Circulation pump fault'],engineering:'high-module',procedure:['Compare SCADA pressure with the pressure transmitter/local indication.','Check the condition of the pressure instrument.','Check pressure-exchanger noise.','Check PX differential pressure; the guide states it should be below 2 bar.','Check pressure-exchanger reject conductivity.','Check circulation-pump VFD status and current.','Record findings and inform the supervisor.']},
+{id:'low-raw',group:'Pressure',severity:'warning',tag:'PIT01',title:'Low raw-water inlet pressure',trigger:'Raw-water pressure below 2.5 bar',short:'Confirm the pressure transmitter, then check borehole availability.',causes:['Pressure transmitter fault','Low network pressure'],engineering:'generic',procedure:['Compare SCADA pressure with the pressure transmitter/local indication.','Check the condition of the pressure transmitter.','Check the status of boreholes in operation.','Increase the number of boreholes in operation when low network pressure is confirmed.']},
+{id:'high-module-dp',group:'Pressure',severity:'warning',tag:'RO ΔP',title:'High module differential pressure',trigger:'Module differential pressure reaches 3 bar',short:'Verify both pressure readings and localize the added hydraulic resistance.',causes:['Pressure transmitter fault','Pressure exchanger fault','Circulation pump fault'],engineering:'high-module-dp',procedure:['Verify the relevant inlet and reject pressure indications.','Check pressure-exchanger noise.','Check PX differential pressure; the guide states it should be below 2 bar.','Check pressure-exchanger reject conductivity.','Check circulation-pump VFD status and current.','Record findings and inform the supervisor.']},
+{id:'valve',group:'Valves',severity:'warning',tag:'Valve feedback',title:'Valve open / close failure',trigger:'Valve fails to open or close for 30 seconds',short:'Retry the approved command, verify physical movement and check the pilot/pneumatic side.',causes:['Operational fault','Pilot valve set fault'],engineering:'generic',procedure:['Try to operate the valve manually from SCADA using the approved command.','Check physical valve status.','For a suspected pilot-valve fault, verify the pilot/pneumatic condition.','Relieve pneumatic pressure only under the approved isolation procedure.','Record findings and inform the supervisor.']},
+{id:'product-pressure',group:'Pressure',severity:'warning',tag:'PIT11',title:'High product / permeate pressure',trigger:'High product pressure',short:'Check permeate valve condition before investigating module integrity.',causes:['Permeate valve','Membrane or connector damage'],engineering:'generic',procedure:['Check permeate valve status.','Record findings and inform the supervisor.','If product-side hydraulics are normal, check modules individually for membrane/interconnector/end-connector damage where symptoms support it.']},
+{id:'self-filter-fault',group:'Filters',severity:'warning',tag:'Warning 12',title:'Self-cleaning filter fault',trigger:'Self-cleaning filter stops functioning',short:'Check position feedback and whether the filter motor is hot or jammed.',causes:['No feedback from filter position sensor','Motor not turning'],engineering:'generic',procedure:['Check whether the filter position-sensor light is on.','If both sensor lights are off, report to the supervisor.','Check whether the motor is hot or jammed.','If the motor is hot or jammed, inform the supervisor.']},
+{id:'panel-isolator',group:'Electrical',severity:'warning',tag:'Warning 10 / 11',title:'Panel isolator switch set to OFF',trigger:'RO panel isolator switch in OFF position',short:'Check motor physical condition before returning the switch to Auto.',causes:['Switch set to OFF'],engineering:'generic',procedure:['Check the motor physical condition.','Return the switch to Auto position when appropriate.']},
+{id:'self-filter-dp',group:'Filters',severity:'warning',tag:'PIT01 - PIT02',title:'Self-cleaning filter DP high',trigger:'High differential pressure across self-cleaning filter',short:'Verify PTs, flushing behavior and whether adjacent plants show the same condition.',causes:['Pressure transmitter fault','High particle density / filter blockage','Common source condition'],engineering:'generic',procedure:['Check the condition of the pressure transmitters and compare SCADA with local indications.','Monitor flushing intervals.','If the system continues flushing for more than one hour without stopping, inform the supervisor.','Compare differential pressure and flushing behavior with adjacent plants.','If only this plant is flushing, clean/inspect the filter.','If adjacent plants are also flushing, investigate the common borehole/source condition with supervisor approval.']},
+{id:'bag-filter-dp',group:'Filters',severity:'warning',tag:'PIT02-PIT03 / PIT02-PIT07',title:'Bag-filter DP high',trigger:'Bag-filter DP above 1.1 bar',short:'Change the bag filter if blocked; verify PTs if the reading does not fit the plant condition.',causes:['Filter blockage','Pressure transmitter fault'],engineering:'generic',procedure:['Change/inspect the bag filter when blockage is confirmed.','Check the condition of the pressure transmitters.','Compare SCADA pressures with local/transmitter indications.','Inform the supervisor if the reading remains inconsistent.']},
+{id:'conductivity',group:'Water quality',severity:'warning',tag:'QIT01 / Warning 02',title:'High product conductivity',trigger:'Guide text states >900 µS/cm for more than 6 minutes',short:'Confirm the conductivity reading, then evaluate salt rejection and vessel-level evidence.',note:"The uploaded guide labels this as high product conductivity, but the trigger sentence says 'Concentrate conductivity'. Confirm the monitored stream before commissioning the final alarm logic.",causes:['Conductivity transmitter fault','Process / ER-unit issue after measurement confirmation'],engineering:'conductivity',procedure:['Compare SCADA conductivity with the conductivity transmitter/local reading.','Check the condition of the conductivity transmitter.','Check conductivity with a manual meter.','If the manual reading agrees with the transmitter, inform the supervisor.','The guide recommends troubleshooting the ER unit when the conductivity reading is confirmed.']},
+{id:'ph-high',group:'Water quality',severity:'warning',tag:'PH01 / Warning 01',title:'Product pH out of range',trigger:'pH above 7',short:'Verify pH with a manual meter before treating it as a process problem.',causes:['pH transmitter fault','Genuine pH increase'],engineering:'generic',procedure:['Compare SCADA pH with the pH transmitter/local reading.','Check the condition of the pH transmitter.','Check pH with a manual meter.','If the manual reading agrees with the transmitter, inform the supervisor.']},
+{id:'hpp-no-feedback',group:'HPP',severity:'shutdown',tag:'Shutdown 22',title:'RO pump no running feedback',trigger:'VFD gives start signal but motor does not start / no running feedback',short:'Check active VFD faults, then distinguish a stopped motor from a feedback fault.',causes:['HPP VFD fault','Motor feedback fault'],engineering:'hpp-feedback',procedure:['Check whether the HPP VFD has an active fault.','Refer to the approved alarm list and reset only faults for which reset is permitted.','If the fault appears again, inform the supervisor.','Check whether the motor is physically running.','If the motor is running but the alarm remains, investigate the running-feedback signal.']},
+{id:'thermistor',group:'HPP',severity:'shutdown',tag:'Shutdown 20',title:'HPP thermistor / high-temperature fault',trigger:'Motor thermistor trips',short:'Confirm the thermistor state and record actual motor body temperature.',causes:['Motor thermistor trip','High HPP motor temperature'],engineering:'generic',procedure:['Check whether the thermistor indicator is tripped.','Check and record the motor body temperature.','Inform the supervisor.']},
+{id:'high-product-flow',group:'Flow',severity:'shutdown',tag:'FIT04 / Shutdown 11',title:'High product flow',trigger:'Above 50 m³/h for 1500 TPD plant or above 100 m³/h for 15 seconds',short:'Check modules individually for a suspected rupture or connector fault.',causes:['Membrane rupture or damage','Interconnector / end-connector damage'],engineering:'generic',procedure:['Check each module individually for the faulty module.','Inspect membrane interconnectors and end connectors where indicated.','Replace or repair the confirmed damaged connector/end connector as required.','Inform the supervisor.']},
+{id:'oil-low',group:'HPP',severity:'shutdown',tag:'Shutdown 09',title:'HPP oil level low',trigger:'Oil level below set level',short:'Check the actual oil level; if correct but alarm remains, suspect the level sensor.',causes:['Low oil level','Level sensor fault'],engineering:'generic',procedure:['Check the HPP oil level.','Top up using the approved oil/procedure if the level is genuinely low.','Restart only after the correct level is restored and the approved procedure permits it.','If the alarm remains after refilling, investigate the level sensor and inform the supervisor.']},
+{id:'hpp-vfd',group:'HPP',severity:'shutdown',tag:'Shutdown 06',title:'RO pump inverter fault',trigger:'Fault arises in the VFD',short:'Read and record the fault code before any reset decision.',causes:['VFD fault'],engineering:'generic',procedure:['Check the active VFD fault/alarm code.','Make a note of the fault.','Follow the approved drive-specific alarm procedure.','Inform the supervisor.']}
+];
 
-function row(label,value,unit,cls=""){
-  return '<div class="data-row '+cls+'"><span>'+label+'</span><strong>'+value+'</strong><em>'+unit+'</em></div>';
+var state={alarm:null,evidence:{},balance:null,filter:'All'};
+
+function nav(name){
+  $$('.screen').forEach(function(s){s.classList.toggle('active',s.id==='screen-'+name);});
+  $$('[data-nav]').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-nav')===name);});
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(name==='alarms')renderAlarms();
+  if(name==='balance')renderBalance();
+  if(name==='assistant')renderAssistantContext();
 }
-function pctError(actual, expected){
-  if (!Number.isFinite(expected) || Math.abs(expected) < 1e-9) return 0;
-  return (actual-expected)/expected*100;
-}
-function escapeHtml(value){
-  return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-}
+$$('[data-nav]').forEach(function(b){b.addEventListener('click',function(){nav(b.getAttribute('data-nav'));});});
+if($('#openAssistant'))$('#openAssistant').addEventListener('click',function(){nav('assistant');});
 
-function showView(name){
-  $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-"+name));
-  $$("[data-view-target]").forEach(b => b.classList.toggle("active", b.dataset.viewTarget === name));
-  window.scrollTo({top:0,behavior:"smooth"});
-  if(name==="dashboard") renderDashboard();
-  if(name==="membrane") calcMembrane();
-  if(name==="energy") renderEnergyPage();
-  if(name==="performance") comparePerformance();
-  if(name==="projects") loadProjects();
-}
-$$("[data-view-target]").forEach(b => b.addEventListener("click",()=>showView(b.dataset.viewTarget)));
-$$("[data-view-jump]").forEach(b => b.addEventListener("click",()=>showView(b.dataset.viewJump)));
+function sevBadge(a){return '<span class="status-badge status-'+a.severity+'">'+(a.severity==='shutdown'?'Shutdown':'Warning')+'</span>';}
+function iconFor(a){return a.group==='Pressure'?'P':a.group==='Flow'?'Q':a.group==='HPP'?'H':a.group==='Filters'?'F':a.group==='Water quality'?'C':'•';}
 
-function calcProcess(){
-  const feed = Math.max(0,num("feedFlow"));
-  const recovery = clamp(num("recovery")/100,0,0.95);
-  const feedP = Math.max(0,num("feedPressure"));
-  const roP = Math.max(feedP,num("roPressure"));
-  const rejectP = Math.max(feedP,num("rejectPressure"));
-  const pxEff = clamp(num("pxPressureEff")/100,0.01,1);
-  const hppEff = clamp(num("hppEff")/100,0.01,1);
-  const cpEff = clamp(num("cpEff")/100,0.01,1);
-
-  const permeate = feed*recovery;
-  const rejectTotal = Math.max(0,feed-permeate);
-
-  let pxHpIn = Math.max(0,num("pxHpIn"));
-  const invalidPx = pxHpIn > rejectTotal + 1e-9;
-  pxHpIn = Math.min(pxHpIn,rejectTotal);
-
-  const pxLpIn = pxHpIn;
-  const pxHpOut = pxLpIn;
-  const pxLpOut = pxHpIn;
-  const hppFlow = Math.max(0,feed-pxLpIn);
-  const cpFlow = pxHpOut;
-  const membraneFeed = hppFlow+cpFlow;
-  const directReject = Math.max(0,rejectTotal-pxHpIn);
-
-  const pxHpOutP = feedP + pxEff*Math.max(0,rejectP-feedP);
-  const hppPower = hppFlow*Math.max(0,roP-feedP)/(36*hppEff);
-  const cpPower = cpFlow*Math.max(0,roP-pxHpOutP)/(36*cpEff);
-  const totalPower = hppPower+cpPower;
-  const sec = permeate>0 ? totalPower/permeate : 0;
-
-  const feedErrorM3h = Math.abs(membraneFeed-feed);
-  const rejectErrorM3h = Math.abs((pxLpOut+directReject)-rejectTotal);
-  const balanceErrorM3h = Math.max(feedErrorM3h,rejectErrorM3h);
-  const balanceErrorPct = feed>0 ? balanceErrorM3h/feed*100 : 0;
-  const balanced = !invalidPx && balanceErrorPct < 0.1;
-
-  const feedTds = Math.max(0,num("feedTds"));
-  const saltRej = clamp(num("saltRejection")/100,0,1);
-  const permTds = feedTds*(1-saltRej);
-  const rejectTds = rejectTotal>0 ? (feedTds*feed-permTds*permeate)/rejectTotal : 0;
-
-  lastCalc = {
-    feed,recovery,feedP,roP,rejectP,pxEff,hppEff,cpEff,permeate,rejectTotal,pxHpIn,pxLpIn,pxHpOut,pxLpOut,
-    hppFlow,cpFlow,membraneFeed,directReject,pxHpOutP,hppPower,cpPower,totalPower,sec,balanceErrorM3h,balanceErrorPct,
-    balanced,feedTds,saltRej,permTds,rejectTds
-  };
-
-  const badge = $("balanceBadge");
-  if(badge){
-    badge.className = "badge "+(balanced?"ok":"bad");
-    badge.textContent = balanced ? "✓ Mass Balance OK" : "⚠ Check Inputs";
-  }
-  if($("balanceMessage")){
-    $("balanceMessage").className = "balance-message"+(balanced?"":" error");
-    $("balanceMessage").textContent = invalidPx
-      ? "PX HP IN cannot exceed total RO reject ("+fmt(rejectTotal)+" m³/h)."
-      : "Feed side: HPP + PX HP OUT = "+fmt(membraneFeed)+" m³/h. Reject side: PX LP OUT + vessel reject = "+fmt(rejectTotal)+" m³/h.";
-  }
-
-  if($("balanceTable")) $("balanceTable").innerHTML =
-    row("Feed to RO (Total)",fmt(feed),"m³/h")+
-    row("To HPP (from Bag Filter)",fmt(hppFlow),"m³/h")+
-    row("PX LP IN (from Bag Filter)",fmt(pxLpIn),"m³/h")+
-    row("Permeate (Total)",fmt(permeate),"m³/h")+
-    row("Reject (Total)",fmt(rejectTotal),"m³/h")+
-    row("RO Reject to PX HP IN",fmt(pxHpIn),"m³/h")+
-    row("Vessel Reject (LP Reject)",fmt(directReject),"m³/h")+
-    row("Recovery (Overall)",fmt(recovery*100),"%")+
-    row("Mass Balance Error",fmt(balanceErrorPct,2),"%",balanced?"good":"warn");
-
-  if($("flowSummary")) $("flowSummary").innerHTML =
-    row("Feed to RO (from Pretreatment)",fmt(feed),"m³/h")+
-    row("To HPP (from Bag Filter)",fmt(hppFlow),"m³/h")+
-    row("PX LP IN (from Bag Filter)",fmt(pxLpIn),"m³/h")+
-    row("PX HP IN (from RO Reject)",fmt(pxHpIn),"m³/h")+
-    row("Permeate (Total)",fmt(permeate),"m³/h")+
-    row("Reject (Total)",fmt(rejectTotal),"m³/h")+
-    row("Mass Balance Check",fmt(balanceErrorPct,2),"%",balanced?"good":"warn");
-
-  if($("energySummary")) $("energySummary").innerHTML =
-    row("HPP Power",fmt(hppPower),"kW")+
-    row("HPP Efficiency",fmt(hppEff*100),"%")+
-    row("CP Power",fmt(cpPower),"kW")+
-    row("CP Efficiency",fmt(cpEff*100),"%")+
-    row("PX Pressure Recovery",fmt(pxEff*100),"%")+
-    row("Net Power (HPP + CP)",fmt(totalPower),"kW")+
-    row("Specific Energy",fmt(sec,2),"kWh/m³");
-
-  if($("qualitySummary")) $("qualitySummary").innerHTML =
-    row("TDS - Feed",fmt(feedTds,0),"mg/L")+
-    row("TDS - Permeate",fmt(permTds,0),"mg/L")+
-    row("TDS - Reject",fmt(rejectTds,0),"mg/L")+
-    row("Temperature",fmt(num("temperature")),"°C")+
-    row("Salt Rejection",fmt(saltRej*100),"%");
-
-  const tags = {
-    tagFeed:fmt(feed,0),tagFeedP:fmt(feedP),tagHpp:fmt(hppFlow,0),tagHppP:fmt(roP),
-    tagPxLpIn:fmt(pxLpIn,0),tagPxLpInP:fmt(feedP),tagPxHpOut:fmt(pxHpOut,0),tagPxHpOutP:fmt(pxHpOutP),
-    tagCp:fmt(cpFlow,0),tagCpP:fmt(roP),tagPxHpIn:fmt(pxHpIn,0),tagRejectP:fmt(rejectP),tagPerm:fmt(permeate,0)
-  };
-  Object.entries(tags).forEach(([id,val])=>{ if($(id)) $(id).textContent=val; });
-
-  syncTroubleDefaults();
-  renderDashboard();
-  renderEnergyPage();
-  return lastCalc;
+function renderHome(){
+  var ids=['high-module','low-booster','conductivity','high-module-dp'];
+  var colors=['color-coral','color-purple','color-mint','color-amber'];
+  $('#quickAlarms').innerHTML=ids.map(function(id,i){
+    var a=alarms.find(function(x){return x.id===id;});
+    return '<button class="quick-card" data-alarm="'+a.id+'"><span class="icon '+colors[i]+'">'+(i===0?'P↑':i===1?'Q↓':i===2?'C↑':'ΔP')+'</span><h3>'+esc(a.title)+'</h3><p>'+esc(a.short)+'</p></button>';
+  }).join('');
+  $('#thresholdList').innerHTML=[['Low inlet pressure','1.5 bar'],['Low raw-water pressure','2.5 bar'],['Low feed flow','150 m³/h'],['Low booster flow','85 m³/h'],['High module pressure','60 bar'],['High module ΔP','3 bar'],['PX ΔP reference','< 2 bar'],['Bag-filter ΔP high','1.1 bar']].map(function(x){return '<div class="threshold-row"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>';}).join('');
+  $$('#quickAlarms [data-alarm]').forEach(function(b){b.addEventListener('click',function(){selectAlarm(b.getAttribute('data-alarm'));});});
 }
 
-[
-  "feedFlow","recovery","pxHpIn","feedPressure","roPressure","rejectPressure","pxPressureEff","hppEff","cpEff",
-  "feedTds","saltRejection","temperature"
-].forEach(id => $(id)?.addEventListener("input",calcProcess));
-$("calculateBtn")?.addEventListener("click",calcProcess);
-
-$("showValues")?.addEventListener("change",e=>{ if($("valueTags")) $("valueTags").style.display=e.target.checked?"":"none"; });
-$("showInstruments")?.addEventListener("change",e=>{ $$(".freq-tag").forEach(x=>x.style.display=e.target.checked?"":"none"); });
-function setZoom(v){ svgZoom=clamp(v,.8,1.3); if($("processSvg")) $("processSvg").style.transform="scale("+svgZoom+")"; if($("zoomLabel")) $("zoomLabel").textContent=Math.round(svgZoom*100)+"%"; }
-$("zoomIn")?.addEventListener("click",()=>setZoom(svgZoom+.1));
-$("zoomOut")?.addEventListener("click",()=>setZoom(svgZoom-.1));
-$("resetView")?.addEventListener("click",()=>setZoom(1));
-$("autoArrange")?.addEventListener("click",()=>setZoom(1));
-
-function renderDashboard(){
-  const c=lastCalc||calcProcess();
-  if(!$("dashboardKpis")) return;
-  $("dashboardKpis").innerHTML =
-    '<div class="kpi"><span>Permeate</span><strong>'+fmt(c.permeate,1)+'</strong><small>m³/h · '+fmt(c.permeate*24,0)+' m³/day</small></div>'+
-    '<div class="kpi"><span>Recovery</span><strong>'+fmt(c.recovery*100,1)+'%</strong><small>Overall RO recovery</small></div>'+
-    '<div class="kpi"><span>RO Pressure</span><strong>'+fmt(c.roP,1)+'</strong><small>bar at inlet header</small></div>'+
-    '<div class="kpi"><span>Specific Energy</span><strong>'+fmt(c.sec,2)+'</strong><small>kWh/m³ preliminary</small></div>';
-  $("dashboardDesign").innerHTML =
-    row("Feed Flow",fmt(c.feed),"m³/h")+row("HPP Branch",fmt(c.hppFlow),"m³/h")+row("PX LP IN",fmt(c.pxLpIn),"m³/h")+
-    row("Reject Total",fmt(c.rejectTotal),"m³/h")+row("Product TDS",fmt(c.permTds,0),"mg/L");
-  const active = lastAlarmScan.filter(x=>x.level==="bad").length;
-  $("dashboardStatus").innerHTML =
-    '<div class="status-line"><span>Mass Balance</span><b class="'+(c.balanced?"good":"bad")+'">'+(c.balanced?"OK":"CHECK")+'</b></div>'+
-    '<div class="status-line"><span>Threshold Alarms</span><b class="'+(active?"bad":"good")+'">'+(active?active+" active":"None")+'</b></div>'+
-    '<div class="status-line"><span>PX Pressure Recovery</span><b class="good">'+fmt(c.pxEff*100,1)+'%</b></div>';
+function renderFilters(){
+  var groups=['All'].concat(Array.from(new Set(alarms.map(function(a){return a.group;}))));
+  $('#alarmFilters').innerHTML=groups.map(function(g){return '<button class="'+(g===state.filter?'active':'')+'" data-filter="'+esc(g)+'">'+esc(g)+'</button>';}).join('');
+  $$('#alarmFilters [data-filter]').forEach(function(b){b.addEventListener('click',function(){state.filter=b.getAttribute('data-filter');renderFilters();renderAlarms();});});
 }
-
-function calcMembrane(){
-  if(!$("mdVessels")) return null;
-  const vessels=Math.max(1,Math.round(num("mdVessels")));
-  const elements=Math.max(1,Math.round(num("mdElements")));
-  const areaEach=Math.max(1,num("mdArea"));
-  const feed=Math.max(0,num("mdFeed"));
-  const rec=clamp(num("mdRecovery")/100,0.01,.9);
-  const totalElements=vessels*elements;
-  const totalArea=totalElements*areaEach;
-  const perm=feed*rec;
-  const reject=feed-perm;
-  const capacity=perm*24;
-  const flux=totalArea>0?perm*1000/totalArea:0;
-  const feedV=feed/vessels;
-  const permV=perm/vessels;
-  const rejectV=reject/vessels;
-
-  lastMembrane={vessels,elements,areaEach,totalElements,totalArea,feed,rec,perm,reject,capacity,flux,feedV,permV,rejectV,stage:$("mdStage").value,membrane:$("mdMembrane").value};
-
-  $("membraneResults").innerHTML =
-    row("Total Elements",fmt(totalElements,0),"ea")+
-    row("Total Membrane Area",fmt(totalArea,0),"m²")+
-    row("Permeate Flow",fmt(perm,1),"m³/h")+
-    row("Plant Capacity",fmt(capacity,0),"m³/day")+
-    row("Reject Flow",fmt(reject,1),"m³/h")+
-    row("Average Flux",fmt(flux,1),"LMH")+
-    row("Feed / Vessel",fmt(feedV,1),"m³/h")+
-    row("Permeate / Vessel",fmt(permV,1),"m³/h")+
-    row("Reject / Vessel",fmt(rejectV,1),"m³/h");
-
-  const checks=[];
-  if(flux>20) checks.push({level:"warn",title:"Average flux is high",text:"Average flux is "+fmt(flux,1)+" LMH. Review the selected membrane vendor limit, fouling allowance and actual feed quality before finalizing."});
-  else if(flux<8) checks.push({level:"warn",title:"Average flux is low",text:"Average flux is "+fmt(flux,1)+" LMH. Check whether the array is oversized or the design flow/recovery is too low."});
-  else checks.push({level:"good",title:"Average flux is in a reasonable preliminary range",text:"Calculated average flux is "+fmt(flux,1)+" LMH. Final acceptance still depends on the selected membrane model and vendor projection."});
-  if(rec>0.5 && ($("waterType")?.value||"").startsWith("Seawater")) checks.push({level:"warn",title:"High seawater recovery",text:"Review osmotic pressure, concentrate quality, scaling risk and vendor limits before using this recovery."});
-  checks.push({level:"good",title:"Single-stage vessel loading",text:vessels+" pressure vessels × "+elements+" elements/vessel = "+totalElements+" elements online."});
-  $("membraneWarnings").innerHTML=checks.map(x=>'<div class="diag-block '+x.level+'"><h3>'+x.title+'</h3><p>'+x.text+'</p></div>').join("");
-  return lastMembrane;
-}
-["mdVessels","mdElements","mdArea","mdFeed","mdRecovery","mdStage","mdMembrane"].forEach(id=>$(id)?.addEventListener("input",calcMembrane));
-$("syncMembraneToProcess")?.addEventListener("click",()=>{
-  $("feedFlow").value=$("mdFeed").value;
-  $("recovery").value=$("mdRecovery").value;
-  calcProcess();
-  showView("process");
-});
-
-function initTroubleshooting(){
-  const data=window.RO_TROUBLESHOOTING;
-  if(!data || !$("troubleSymptoms")) return;
-
-  const primary=[
-    ["module_pressure_rising","Pressure","P↑"],
-    ["product_cond_rising","Water Quality","µS"],
-    ["px_flow_imbalance","PX / Flow","PX"],
-    ["cp_mismatch","CP / VFD","CP"],
-    ["hpp_no_start","HPP","HPP"],
-    ["high_module_dp","Membranes","ΔP"],
-    ["scada_local_mismatch","Instrumentation","AI"],
-    ["cip","Membranes / CIP","CIP"]
-  ];
-
-  $("symptomCount").textContent=String(primary.length);
-  $("troubleSymptoms").innerHTML=primary.map(([id,cat,icon])=>{
-    const diag=data.diagnostics[id];
-    return '<button type="button" class="ts-symptom '+(id===currentTroubleSymptom?"active":"")+'" data-symptom="'+id+'">'+
-      '<span class="icon">'+icon+'</span>'+
-      '<span class="copy"><b>'+escapeHtml(diag?.title||id)+'</b><small>'+escapeHtml(cat)+'</small></span>'+
-      '<span class="chev">›</span></button>';
-  }).join("");
-
-  $("troubleSymptoms").addEventListener("click",e=>{
-    const btn=e.target.closest("[data-symptom]"); if(!btn) return;
-    currentTroubleSymptom=btn.dataset.symptom;
-    currentTroubleBranch=null;
-    $$("#troubleSymptoms [data-symptom]").forEach(x=>x.classList.toggle("active",x.dataset.symptom===currentTroubleSymptom));
-    renderTroubleDiagnostic();
+function renderAlarms(){
+  renderFilters();
+  var q=($('#alarmSearch')?$('#alarmSearch').value:'').trim().toLowerCase();
+  var list=alarms.filter(function(a){
+    var groupOk=state.filter==='All'||a.group===state.filter;
+    var searchOk=!q||[a.title,a.tag,a.group,a.trigger].join(' ').toLowerCase().indexOf(q)>=0;
+    return groupOk&&searchOk;
   });
-
-  renderTroubleDiagnostic();
+  $('#alarmGrid').innerHTML=list.map(function(a){
+    return '<button class="alarm-card" data-alarm="'+a.id+'"><div class="alarm-top"><span class="alarm-icon '+(a.severity==='shutdown'?'color-coral':'color-purple')+'">'+iconFor(a)+'</span>'+sevBadge(a)+'</div><h3>'+esc(a.title)+'</h3><p>'+esc(a.short)+'</p><div class="alarm-meta"><div><span>Tag</span><b>'+esc(a.tag)+'</b></div><div><span>Trigger</span><b>'+esc(a.trigger)+'</b></div></div></button>';
+  }).join('')||'<div class="empty-state"><h2>No matching alarms</h2><p>Try another search or category.</p></div>';
+  $$('#alarmGrid [data-alarm]').forEach(function(b){b.addEventListener('click',function(){selectAlarm(b.getAttribute('data-alarm'));});});
 }
+if($('#alarmSearch'))$('#alarmSearch').addEventListener('input',renderAlarms);
 
-function setDiagnosticSteps(stage){
-  $$(".ts-step").forEach((step,i)=>{
-    step.classList.toggle("active",i<=stage);
-    step.classList.toggle("done",i<stage);
-  });
+function selectAlarm(id){
+  state.alarm=alarms.find(function(a){return a.id===id;})||null;
+  state.evidence={};
+  renderTroubleshoot();
+  nav('troubleshoot');
 }
+function setSteps(n){$$('#stepper span').forEach(function(s,i){s.classList.toggle('active',i<n);});}
 
-function renderTroubleDiagnostic(){
-  const diag=window.RO_TROUBLESHOOTING?.diagnostics[currentTroubleSymptom];
-  if(!diag) return;
+function renderTroubleshoot(){
+  var a=state.alarm;
+  if(!a){$('#tsEmpty').classList.remove('hidden');$('#tsWorkspace').classList.add('hidden');return;}
+  $('#tsEmpty').classList.add('hidden');$('#tsWorkspace').classList.remove('hidden');
+  $('#tsTitle').textContent=a.title;$('#tsSubtitle').textContent=a.trigger;setSteps(2);
+  $('#alarmOverview').innerHTML='<div class="alarm-summary"><span class="alarm-icon '+(a.severity==='shutdown'?'color-coral':'color-purple')+'">'+iconFor(a)+'</span><div><span class="eyebrow">'+esc(a.group.toUpperCase())+' · '+esc(a.tag)+'</span><h2>'+esc(a.title)+'</h2><p>'+esc(a.trigger)+'</p></div>'+sevBadge(a)+'</div>'+(a.note?'<div class="result-banner warn" style="margin-top:14px"><h3>Source note</h3><p>'+esc(a.note)+'</p></div>':'');
+  $('#officialProcedure').innerHTML='<div class="panel-head"><div><span class="eyebrow">FIRST-LINE PROCEDURE</span><h2>Start with the alarm-guide checks</h2></div><span class="alarm-tag">MWSC alarm guide</span></div><div class="procedure-list">'+a.procedure.map(function(s,i){return '<div class="procedure-step"><b>'+String(i+1).padStart(2,'0')+'</b><p>'+esc(s)+'</p></div>';}).join('')+'</div><div style="margin-top:14px"><button class="primary-btn" id="continueDx">Continue to engineering diagnosis</button></div>';
+  $('#activeAlarmMini').innerHTML='<h3>'+esc(a.title)+'</h3><p>'+esc(a.tag)+'<br>'+esc(a.trigger)+'</p>';
+  $('#engineeringInputs').classList.add('hidden');$('#diagnosisResult').classList.add('hidden');
+  $('#evidenceList').innerHTML='<p class="muted">Complete the verification step to add evidence.</p>';
+  byId('continueDx').onclick=function(){renderEngineeringInputs(a);};
+}
+if($('#changeAlarm'))$('#changeAlarm').addEventListener('click',function(){nav('alarms');});
 
-  $("diagnosticTitle").textContent=diag.title||"Guided Diagnosis";
-  $("diagnosticMode").className="ts-status-pill info";
-  $("diagnosticMode").textContent=diag.branchOptions?"Select observation":"Verification sequence";
-
-  const question=diag.prompt || "Use the verified plant condition below to continue the diagnostic sequence.";
-  $("troubleQuestion").textContent=question;
-
-  if(diag.branchOptions?.length){
-    $("troubleBranchButtons").innerHTML=diag.branchOptions.map(([value,label])=>
-      '<button type="button" class="ts-option '+(currentTroubleBranch===value?"active":"")+'" data-branch="'+value+'">'+escapeHtml(label)+'</button>'
-    ).join("");
-
-    $("troubleBranchButtons").querySelectorAll("[data-branch]").forEach(btn=>btn.addEventListener("click",()=>{
-      currentTroubleBranch=btn.dataset.branch;
-      $("troubleBranchButtons").querySelectorAll("[data-branch]").forEach(x=>x.classList.toggle("active",x===btn));
-      renderTroubleResult();
-    }));
-
-    if(!currentTroubleBranch){
-      $("diagnosticResult").innerHTML=
-        '<article class="ts-result-card muted"><div class="ts-result-icon">◎</div><span>LIKELY DIRECTION</span><h3>Select the observed trend</h3><p>The likely cause changes depending on the pre-trip trend.</p></article>'+
-        '<article class="ts-result-card muted"><div class="ts-result-icon">✓</div><span>VERIFY NEXT</span><h3>Evidence first</h3><p>SCADA values, local instruments and mass balance are checked before an equipment fault is assigned.</p></article>'+
-        '<article class="ts-result-card muted"><div class="ts-result-icon">→</div><span>CORRECTIVE ACTION</span><h3>Only after confirmation</h3><p>No speed or valve changes should be made just to hide the symptom.</p></article>';
-      setDiagnosticSteps(2);
-    }else{
-      renderTroubleResult();
-    }
+function field(id,label,value,unit,step){
+  step=step||'0.1';
+  return '<label class="field"><span>'+esc(label)+'</span><div><input id="'+id+'" type="number" value="'+value+'" step="'+step+'"><b>'+esc(unit)+'</b></div></label>';
+}
+function selectField(id,label,options){
+  return '<label class="field"><span>'+esc(label)+'</span><div><select id="'+id+'">'+options.map(function(o){return '<option value="'+o[0]+'">'+esc(o[1])+'</option>';}).join('')+'</select></div></label>';
+}
+function renderEngineeringInputs(a){
+  setSteps(3);
+  var h=$('#engineeringInputs');h.classList.remove('hidden');
+  var body='';
+  if(a.engineering==='high-module'){
+    body='<div class="panel-head"><div><span class="eyebrow">ENGINEERING CORRELATION</span><h2>Compare the event with the earlier stable condition</h2></div></div><div class="form-grid">'+
+    field('dxModuleBefore','Module pressure · earlier',56.4,'bar')+field('dxModuleNow','Module pressure · now/trip',60.2,'bar')+
+    field('dxRejectBefore','Reject pressure · earlier',54.5,'bar')+field('dxRejectNow','Reject pressure · now/trip',56.1,'bar')+
+    field('dxLocalGauge','Local module pressure',60.1,'bar')+field('dxFeedBefore','Feed flow · earlier',186,'m³/h','1')+
+    field('dxFeedNow','Feed flow · now',169,'m³/h','1')+field('dxPxDp','PX differential pressure',1.3,'bar')+
+    field('dxHppRef','HPP reference',45,'Hz')+field('dxHppActual','HPP actual',45,'Hz')+
+    field('dxCpRef','CP reference',39,'Hz')+field('dxCpActual','CP actual',39,'Hz')+
+    field('dxCpCurrent','CP current',57,'A','1')+field('dxBagDp','Bag-filter DP',0.5,'bar')+'</div>';
+  }else if(a.engineering==='conductivity'){
+    body='<div class="panel-head"><div><span class="eyebrow">ENGINEERING CORRELATION</span><h2>Confirm the reading, then assess salt passage</h2></div></div><div class="form-grid">'+
+    field('dxCondBefore','Conductivity · baseline',320,'µS/cm','1')+field('dxCondNow','Conductivity · now',700,'µS/cm','1')+
+    field('dxCondManual','Manual meter',690,'µS/cm','1')+field('dxFeedCond','Borewell feed conductivity',45000,'µS/cm','10')+
+    field('dxPressureBase','Module pressure · baseline',57.5,'bar')+field('dxPressureNow','Module pressure · now',57.5,'bar')+
+    field('dxRecoveryBase','Recovery · baseline',42,'%')+field('dxRecoveryNow','Recovery · now',42,'%')+
+    field('dxTempBase','Feed temperature · baseline',29,'°C')+field('dxTempNow','Feed temperature · now',29,'°C')+'</div>'+
+    '<div class="panel-head" style="margin-top:16px"><div><span class="eyebrow">OPTIONAL</span><h2>Individual vessel permeate conductivity</h2></div></div><div class="form-grid">'+[1,2,3,4,5,6].map(function(i){return field('dxPv'+i,'PV-'+String(i).padStart(2,'0'),0,'µS/cm','1');}).join('')+'</div>';
+  }else if(a.engineering==='high-module-dp'){
+    body='<div class="panel-head"><div><span class="eyebrow">ENGINEERING CORRELATION</span><h2>Localize the pressure loss</h2></div></div><div class="form-grid">'+
+    field('dxInletP','Module inlet pressure',58,'bar')+field('dxRejectP','Module reject pressure',54.5,'bar')+
+    field('dxLocalInlet','Local inlet pressure',58,'bar')+field('dxLocalReject','Local reject pressure',54.5,'bar')+
+    field('dxFeedFlow','Feed flow',180,'m³/h','1')+field('dxBagDp2','Bag-filter DP',0.5,'bar')+field('dxPxDp2','PX differential pressure',1.2,'bar')+'</div>';
+  }else if(a.engineering==='low-booster'){
+    body='<div class="panel-head"><div><span class="eyebrow">ENGINEERING CORRELATION</span><h2>Separate measurement, PX and CP causes</h2></div></div><div class="form-grid">'+
+    field('dxBoosterScada','Booster flow · SCADA',80,'m³/h','1')+field('dxBoosterLocal','Booster flow · local',80,'m³/h','1')+
+    field('dxModuleDp3','Module differential pressure',1.5,'bar')+field('dxPxDp3','PX differential pressure',1.2,'bar')+
+    field('dxCpRef3','CP reference',39,'Hz')+field('dxCpActual3','CP actual',39,'Hz')+field('dxCpCurrent3','CP current',57,'A','1')+'</div>';
+  }else if(a.engineering==='low-inlet'){
+    body='<div class="panel-head"><div><span class="eyebrow">ENGINEERING CORRELATION</span><h2>Confirm whether the low pressure is real</h2></div></div><div class="form-grid">'+
+    field('dxLowScada','SCADA pressure',1.3,'bar')+field('dxLowLocal','Local pressure',1.3,'bar')+field('dxBoreholes','Boreholes in operation',3,'ea','1')+field('dxFeedFlow2','Feed flow',145,'m³/h','1')+'</div>';
+  }else if(a.engineering==='hpp-feedback'){
+    body='<div class="panel-head"><div><span class="eyebrow">ENGINEERING CORRELATION</span><h2>Separate drive, motor and feedback causes</h2></div></div><div class="form-grid">'+
+    selectField('dxVfdFault','VFD active fault?',[['yes','Yes'],['no','No']])+selectField('dxMotorRuns','Motor physically running?',[['no','No'],['yes','Yes']])+
+    selectField('dxRunCommand','Run command present?',[['yes','Yes'],['no','No']])+selectField('dxFeedback','Running feedback present?',[['no','No'],['yes','Yes']])+'</div>';
   }else{
-    $("troubleBranchButtons").innerHTML='<button type="button" class="ts-option active">Use standard verification sequence</button>';
-    renderTroubleResult();
+    body='<div class="panel-head"><div><span class="eyebrow">VERIFICATION COMPLETE</span><h2>Use the first-line procedure as the controlling path</h2></div></div><div class="result-banner warn"><h3>No deeper plant-specific decision tree is encoded yet</h3><p>The portal will not invent one. Record the alarm-guide findings and use the AI assistant for explanation, not as a replacement for the approved procedure.</p></div>';
   }
+  h.innerHTML=body+'<button class="primary-btn" id="runDx" style="margin-top:14px">Analyze evidence</button>';
+  byId('runDx').onclick=function(){runDiagnosis(a);};
+  h.scrollIntoView({behavior:'smooth',block:'start'});
 }
-
-function renderTroubleResult(){
-  const diag=window.RO_TROUBLESHOOTING?.diagnostics[currentTroubleSymptom];
-  if(!diag) return;
-  const result=diag.branchOptions ? (diag.branches?.[currentTroubleBranch] || diag.branches?.unknown) : diag;
-  if(!result) return;
-
-  const likely=result.likely||"Verification required before assigning a cause.";
-  const checks=result.checks||[];
-  const actions=result.actions||[];
-
-  $("diagnosticMode").className="ts-status-pill good";
-  $("diagnosticMode").textContent="Diagnostic path ready";
-  $("diagnosticResult").innerHTML=
-    '<article class="ts-result-card direction"><div class="ts-result-icon">◎</div><span>LIKELY DIRECTION</span><h3>'+escapeHtml(likely)+'</h3><p>Use this as the working direction, not as a confirmed failure, until the verification sequence is complete.</p></article>'+
-    '<article class="ts-result-card verify"><div class="ts-result-icon">✓</div><span>VERIFY NEXT</span><h3>Checks in order</h3><ol>'+checks.map(x=>'<li>'+escapeHtml(x)+'</li>').join("")+'</ol></article>'+
-    '<article class="ts-result-card action"><div class="ts-result-icon">→</div><span>CORRECTIVE ACTION</span><h3>After cause is confirmed</h3><ol>'+actions.map(x=>'<li>'+escapeHtml(x)+'</li>').join("")+'</ol></article>';
-
-  lastDiagnostic={id:currentTroubleSymptom,title:diag.title,likely,checks,actions,branch:currentTroubleBranch};
-  setDiagnosticSteps(4);
+function evidence(items){
+  state.evidence={};
+  items.forEach(function(x){state.evidence[x[0]]=x[1];});
+  $('#evidenceList').innerHTML=items.map(function(x){return '<div class="evidence-item"><span>'+esc(x[0])+'</span><b>'+esc(x[1])+'</b></div>';}).join('');
 }
+function result(level,headline,text,findings,actions){return {level:level,headline:headline,text:text,findings:findings||[],actions:actions||[]};}
 
-$$("[data-trouble-tab]").forEach(b=>b.addEventListener("click",()=>{
-  const tab=b.dataset.troubleTab;
-  $$("[data-trouble-tab]").forEach(x=>x.classList.toggle("active",x===b));
-  $$(".trouble-pane").forEach(x=>x.classList.toggle("active",x.id==="trouble-"+tab));
-  if(tab==="balance") runMeasuredBalance();
-}));
-
-function syncTroubleDefaults(){
-  if(!lastCalc) return;
-  const c=lastCalc;
-  const pairs={
-    mFeed:c.feed,mHpp:c.hppFlow,mPxLpIn:c.pxLpIn,mRoFeed:c.membraneFeed,mPxHpOut:c.pxHpOut,mPerm:c.permeate,
-    mPxHpIn:c.pxHpIn,mPxLpOut:c.pxLpOut,mDirectReject:c.directReject,
-    alarmModuleP:c.roP,alarmPxDp:Math.max(0,c.rejectP-c.pxHpOutP),
-    pfFeed:c.feed,pfPerm:c.permeate,pfPressure:c.roP,pfTds:c.permTds,pfPower:c.totalPower
-  };
-  Object.entries(pairs).forEach(([id,val])=>{const el=$(id); if(el && !el.matches(":focus")) el.value=fmt(val,1);});
-  updateFlowBalanceDiagram();
-}
-
-function flowLevel(error,tol){
-  const a=Math.abs(error);
-  return a<=tol?"good":a<=tol*2?"warn":"bad";
-}
-function flowCheckCard(title,equation,error,tol){
-  const level=flowLevel(error,tol);
-  const status=level==="good"?"PASS":level==="warn"?"REVIEW":"FAIL";
-  return '<article class="fb-check '+level+'">'+
-    '<div class="fb-check-head"><b>'+escapeHtml(title)+'</b><span class="status">'+status+'</span></div>'+
-    '<div class="fb-equation">'+escapeHtml(equation)+'</div>'+
-    '<div class="fb-error">'+fmt(error,1)+'%</div></article>';
-}
-
-function updateFlowBalanceDiagram(){
-  const ids={
-    fbFeed:"mFeed",fbHpp:"mHpp",fbPxLpIn:"mPxLpIn",fbRoFeed:"mRoFeed",fbPxHpOut:"mPxHpOut",
-    fbPerm:"mPerm",fbPxHpIn:"mPxHpIn",fbPxLpOut:"mPxLpOut",fbDirectReject:"mDirectReject"
-  };
-  Object.entries(ids).forEach(([target,source])=>{ if($(target)&&$(source)) $(target).textContent=fmt(num(source),1); });
-  if($("balanceToleranceLabel")) $("balanceToleranceLabel").textContent="±"+fmt(Math.max(.1,num("mTolerance")),1)+"% tolerance";
-}
-
-function runMeasuredBalance(){
-  if(!$("mFeed")) return;
-  const tol=Math.max(.1,num("mTolerance"));
-  const feed=num("mFeed"),hpp=num("mHpp"),lpIn=num("mPxLpIn"),roFeed=num("mRoFeed"),hpOut=num("mPxHpOut"),perm=num("mPerm"),hpIn=num("mPxHpIn"),lpOut=num("mPxLpOut"),direct=num("mDirectReject");
-
-  const checks=[
-    {title:"Raw Feed Split",eq:"HPP + PX LP IN = Total Feed",error:pctError(hpp+lpIn,feed)},
-    {title:"RO Header Balance",eq:"HPP + PX HP OUT = RO Feed",error:pctError(hpp+hpOut,roFeed)},
-    {title:"RO Mass Balance",eq:"Permeate + PX HP IN + Direct Reject = RO Feed",error:pctError(perm+hpIn+direct,roFeed)},
-    {title:"PX Feed Side",eq:"PX HP OUT ≈ PX LP IN",error:pctError(hpOut,lpIn)},
-    {title:"PX Reject Side",eq:"PX LP OUT ≈ PX HP IN",error:pctError(lpOut,hpIn)}
-  ];
-
-  $("measuredBalanceResults").innerHTML=checks.map(x=>flowCheckCard(x.title,x.eq,x.error,tol)).join("");
-  updateFlowBalanceDiagram();
-
-  const worst=checks.reduce((a,b)=>Math.abs(b.error)>Math.abs(a.error)?b:a,checks[0]);
-  const failures=checks.filter(x=>Math.abs(x.error)>tol);
-  const reviews=checks.filter(x=>flowLevel(x.error,tol)==="warn");
-
-  const overall=$("flowBalanceOverall");
-  const conclusion=$("flowBalanceConclusion");
-
-  if(!failures.length){
-    overall.className="fb-overall good";
-    overall.innerHTML='<span>✓</span><div><b>BALANCED</b><small>All checks within tolerance</small></div>';
-    conclusion.innerHTML='<div class="fb-conclusion-icon good">✓</div><div><b>Measured flows are internally consistent.</b><p>If the plant still has a pressure, conductivity or pump/PX symptom, continue with the guided diagnostic path. Do not create a hydraulic fault simply because one parameter looks unusual.</p></div>';
-  }else if(reviews.length===failures.length){
-    overall.className="fb-overall warn";
-    overall.innerHTML='<span>!</span><div><b>REVIEW</b><small>One or more balances marginal</small></div>';
-    conclusion.innerHTML='<div class="fb-conclusion-icon warn">!</div><div><b>'+escapeHtml(worst.title)+' has the largest balance error ('+fmt(worst.error,1)+'%).</b><p>Verify flowmeter scaling/zero, bypass and isolation valves, drains/sample lines and leakage paths before changing PX, HPP or CP settings.</p></div>';
-  }else{
-    overall.className="fb-overall bad";
-    overall.innerHTML='<span>×</span><div><b>UNBALANCED</b><small>Measurement set does not close</small></div>';
-    conclusion.innerHTML='<div class="fb-conclusion-icon bad">!</div><div><b>'+escapeHtml(worst.title)+' is outside the selected tolerance ('+fmt(worst.error,1)+'%).</b><p>Treat this first as a measurement or unaccounted-flow problem. Confirm instruments, bypasses, drains and valve lineup before assigning an equipment fault.</p></div>';
-  }
-}
-
-["mFeed","mHpp","mPxLpIn","mRoFeed","mPxHpOut","mPerm","mPxHpIn","mPxLpOut","mDirectReject","mTolerance"]
-  .forEach(id=>$(id)?.addEventListener("input",runMeasuredBalance));
-$("runFlowBalance")?.addEventListener("click",runMeasuredBalance);
-$("loadDesignFlows")?.addEventListener("click",()=>{
-  if(!lastCalc) calcProcess();
-  syncTroubleDefaults();
-  runMeasuredBalance();
-});
-
-function scanAlarms(){
-  if(!$("alarmModuleP")) return;
-  const pAlarm=Math.max(0,num("setModulePAlarm")||60);
-  const dpAlarm=Math.max(0,num("setModuleDpAlarm")||3);
-  const pxDpAlarm=Math.max(0,num("setPxDpAlarm")||2);
-  const speedDev=Math.max(0,num("setSpeedDev")||2);
-
-  const p=num("alarmModuleP"),dp=num("alarmModuleDp"),pxdp=num("alarmPxDp"),cond=num("alarmProductCond");
-  const hRef=num("alarmHppRef"),hAct=num("alarmHppAct"),cRef=num("alarmCpRef"),cAct=num("alarmCpAct");
-
-  const out=[
-    {id:"moduleP",title:"Module inlet pressure",value:p+" bar",level:p>=pAlarm?"bad":"good",text:p>=pAlarm?"At/above "+pAlarm+" bar alarm. Review pre-trip RO ΔP before changing pump speed.":"Below "+pAlarm+" bar alarm."},
-    {id:"moduleDp",title:"RO module ΔP",value:dp+" bar",level:dp>=dpAlarm?"bad":"good",text:dp>=dpAlarm?"At/above "+dpAlarm+" bar alarm. Localize pressure loss and verify restriction/fouling/scaling.":"Below "+dpAlarm+" bar alarm."},
-    {id:"pxDp",title:"PX ΔP",value:pxdp+" bar",level:pxdp>=pxDpAlarm?"bad":"good",text:pxdp>=pxDpAlarm?"At/above "+pxDpAlarm+" bar reference. Check pressure instruments, PX flow ratio and valve lineup.":"Below "+pxDpAlarm+" bar reference."},
-    {id:"hppSpeed",title:"HPP speed tracking",value:fmt(hAct-hRef,1)+" Hz",level:Math.abs(hRef-hAct)>speedDev?"warn":"good",text:"Reference "+fmt(hRef,1)+" Hz / actual "+fmt(hAct,1)+" Hz."},
-    {id:"cpSpeed",title:"CP speed tracking",value:fmt(cAct-cRef,1)+" Hz",level:Math.abs(cRef-cAct)>speedDev?"warn":"good",text:"Reference "+fmt(cRef,1)+" Hz / actual "+fmt(cAct,1)+" Hz."},
-    {id:"conductivity",title:"Product conductivity",value:cond+" µS/cm",level:"good",text:"Trend against the stable borewell-feed baseline. A confirmed rise should trigger analyzer verification first, then pressure/recovery/temperature and salt rejection checks."}
-  ];
-  lastAlarmScan=out;
-
-  const statusMap=[
-    ["stateModuleP",p>=pAlarm],
-    ["stateModuleDp",dp>=dpAlarm],
-    ["statePxDp",pxdp>=pxDpAlarm]
-  ];
-  statusMap.forEach(([id,isAlarm])=>{const el=$(id);if(el){el.className=isAlarm?"alarm":"normal";el.textContent=isAlarm?"ALARM":"NORMAL";}});
-  if($("hppSpeedState")) $("hppSpeedState").className="ts-state-dot "+(Math.abs(hRef-hAct)>speedDev?"warn":"good");
-  if($("cpSpeedState")) $("cpSpeedState").className="ts-state-dot "+(Math.abs(cRef-cAct)>speedDev?"warn":"good");
-
-  if($("displayModulePAlarm")) $("displayModulePAlarm").textContent=fmt(pAlarm,0)+" bar";
-  if($("displayModuleDpAlarm")) $("displayModuleDpAlarm").textContent=fmt(dpAlarm,0)+" bar";
-  if($("displayPxDpAlarm")) $("displayPxDpAlarm").textContent=fmt(pxDpAlarm,0)+" bar";
-
-  const noteworthy=out.filter(x=>x.level!=="good");
-  $("alarmResults").innerHTML=noteworthy.slice(0,3).map(x=>
-    '<div class="mini-alarm '+x.level+'"><span>'+escapeHtml(x.title)+'</span><b>'+escapeHtml(x.level==="bad"?"ALARM":"REVIEW")+'</b></div>'
-  ).join("") || '<div class="mini-alarm good"><span>Pressure / speed checks</span><b>NORMAL</b></div>';
-
-  const active=out.filter(x=>x.level==="bad").length;
-  const review=out.filter(x=>x.level==="warn").length;
-  $("alarmSummaryBadge").className="ts-status-pill "+(active?"bad":review?"warn":"good");
-  $("alarmSummaryBadge").textContent=active?active+" active alarm"+(active>1?"s":""):review?review+" item"+(review>1?"s":"")+" to review":"System checks normal";
-  renderDashboard();
-}
-$("scanAlarms")?.addEventListener("click",scanAlarms);
-["alarmModuleP","alarmModuleDp","alarmPxDp","alarmProductCond","alarmHppRef","alarmHppAct","alarmCpRef","alarmCpAct"]
-  .forEach(id=>$(id)?.addEventListener("input",scanAlarms));
-
-function renderEnergyPage(){
-  const c=lastCalc||calcProcess();
-  if(!$("energyKpis")) return;
-  $("energyKpis").innerHTML=
-    '<div class="kpi"><span>HPP Power</span><strong>'+fmt(c.hppPower,1)+'</strong><small>kW</small></div>'+
-    '<div class="kpi"><span>CP Power</span><strong>'+fmt(c.cpPower,1)+'</strong><small>kW</small></div>'+
-    '<div class="kpi"><span>Net Power</span><strong>'+fmt(c.totalPower,1)+'</strong><small>kW</small></div>'+
-    '<div class="kpi"><span>SEC</span><strong>'+fmt(c.sec,2)+'</strong><small>kWh/m³</small></div>';
-  $("energyInputsSummary").innerHTML=
-    row("Feed Pressure",fmt(c.feedP),"bar")+row("RO Header Pressure",fmt(c.roP),"bar")+row("Reject Pressure",fmt(c.rejectP),"bar")+
-    row("HPP Flow",fmt(c.hppFlow),"m³/h")+row("PX / CP Flow",fmt(c.cpFlow),"m³/h");
-  $("energyDetail").innerHTML=
-    row("PX HP OUT Pressure",fmt(c.pxHpOutP),"bar")+row("PX Pressure Recovery",fmt(c.pxEff*100),"%")+
-    row("HPP Efficiency",fmt(c.hppEff*100),"%")+row("CP Efficiency",fmt(c.cpEff*100),"%")+
-    row("HPP + CP Power",fmt(c.totalPower),"kW")+row("Daily Energy",fmt(c.totalPower*24,0),"kWh/day");
-}
-
-function comparePerformance(){
-  if(!$("pfFeed")) return;
-  const c=lastCalc||calcProcess();
-  const feed=Math.max(0,num("pfFeed")),perm=Math.max(0,num("pfPerm")),pressure=Math.max(0,num("pfPressure")),dp=Math.max(0,num("pfDp")),tds=Math.max(0,num("pfTds")),power=Math.max(0,num("pfPower"));
-  const rec=feed>0?perm/feed:0;
-  const sec=perm>0?power/perm:0;
-  const warn=Math.max(1,num("setPerformance")||10);
-  const metrics=[
-    ["Feed Flow",feed,c.feed,"m³/h"],
-    ["Permeate Flow",perm,c.permeate,"m³/h"],
-    ["Recovery",rec*100,c.recovery*100,"%"],
-    ["RO Pressure",pressure,c.roP,"bar"],
-    ["Product TDS",tds,c.permTds,"mg/L"],
-    ["Specific Energy",sec,c.sec,"kWh/m³"]
-  ];
-  $("performanceResults").innerHTML=metrics.map(([n,a,d,u])=>row(n,fmt(a,2),u,Math.abs(pctError(a,d))>warn?"warn":"good")).join("");
-  const flags=[];
-  metrics.forEach(([name,a,d,u])=>{
-    const dev=pctError(a,d);
-    if(Math.abs(dev)>warn) flags.push({level:"warn",title:name+" deviation",text:"Actual "+fmt(a,2)+" "+u+" vs design "+fmt(d,2)+" "+u+" ("+fmt(dev,1)+"%)."});
-  });
-  if(dp>=num("setModuleDpAlarm")) flags.push({level:"bad",title:"High module DP",text:"Actual module DP "+fmt(dp,1)+" bar is at/above the configured alarm."});
-  if(!flags.length) flags.push({level:"good",title:"Performance within configured variance",text:"No entered performance metric exceeds the "+fmt(warn,0)+"% variance threshold."});
-  $("performanceFlags").innerHTML=flags.map(x=>'<div class="diag-block '+x.level+'"><h3>'+x.title+'</h3><p>'+x.text+'</p></div>').join("");
-}
-$("comparePerformance")?.addEventListener("click",comparePerformance);
-
-function generateReport(){
-  const c=lastCalc||calcProcess();
-  const m=lastMembrane||calcMembrane();
-  const diag=lastDiagnostic;
-  const alarms=lastAlarmScan.filter(x=>x.level!=="good");
-  const html=
-    '<h3>Active Design Case</h3>'+
-    '<table><tr><th>Parameter</th><th>Value</th></tr>'+
-    '<tr><td>Feed</td><td>'+fmt(c.feed)+' m³/h</td></tr>'+
-    '<tr><td>Permeate</td><td>'+fmt(c.permeate)+' m³/h</td></tr>'+
-    '<tr><td>Recovery</td><td>'+fmt(c.recovery*100)+'%</td></tr>'+
-    '<tr><td>RO Pressure</td><td>'+fmt(c.roP)+' bar</td></tr>'+
-    '<tr><td>Specific Energy</td><td>'+fmt(c.sec,2)+' kWh/m³</td></tr>'+
-    '<tr><td>Mass Balance</td><td>'+(c.balanced?"OK":"Check required")+'</td></tr></table>'+
-    '<h3>Membrane Design</h3><p>'+(m?m.vessels+" vessels × "+m.elements+" elements/vessel; "+fmt(m.totalArea,0)+" m² total membrane area; "+fmt(m.flux,1)+" LMH average flux.":"Membrane design not calculated.")+'</p>'+
-    '<h3>Troubleshooting</h3><p>'+(diag?'<b>'+escapeHtml(diag.title)+':</b> '+escapeHtml(diag.likely):"No guided diagnostic has been run for this report.")+'</p>'+
-    '<h3>Abnormal Parameters</h3><p>'+(alarms.length?alarms.map(x=>escapeHtml(x.title)+" — "+escapeHtml(x.text)).join("<br>"):"No active threshold alarms from the latest scan.")+'</p>';
-  $("reportPreview").innerHTML=html;
-}
-$("generateReport")?.addEventListener("click",generateReport);
-$("printReport")?.addEventListener("click",()=>{generateReport();window.print();});
-$("downloadCsv")?.addEventListener("click",()=>{
-  const c=lastCalc||calcProcess();
-  const rows=[
-    ["Parameter","Value","Unit"],
-    ["Feed",c.feed,"m3/h"],["Permeate",c.permeate,"m3/h"],["Recovery",c.recovery*100,"%"],["Reject",c.rejectTotal,"m3/h"],
-    ["HPP Flow",c.hppFlow,"m3/h"],["PX LP IN",c.pxLpIn,"m3/h"],["RO Pressure",c.roP,"bar"],["Net Power",c.totalPower,"kW"],["SEC",c.sec,"kWh/m3"],
-    ["Feed TDS",c.feedTds,"mg/L"],["Permeate TDS",c.permTds,"mg/L"],["Reject TDS",c.rejectTds,"mg/L"]
-  ];
-  const csv=rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(",")).join("\n");
-  const blob=new Blob([csv],{type:"text/csv"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ro-engineer-case.csv";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-});
-
-async function refreshAuth(){
-  if(!db) return;
-  const {data}=await db.auth.getSession();
-  currentUser=data.session?.user||null;
-  renderAuthState();
-}
-function renderAuthState(){
-  if(!$("dbStatus")) return;
-  $("dbStatus").className="badge "+(currentUser?"ok":"calc");
-  $("dbStatus").textContent=currentUser?"Signed in":"Not signed in";
-  $("profileState").textContent=currentUser?currentUser.email:"RO Design";
-  if(currentUser) loadProjects();
-}
-$("signInBtn")?.addEventListener("click",async()=>{
-  if(!db) return;
-  const {data,error}=await db.auth.signInWithPassword({email:$("authEmail").value.trim(),password:$("authPassword").value});
-  $("authMessage").textContent=error?error.message:"Signed in.";
-  if(!error){currentUser=data.user;renderAuthState();}
-});
-$("signUpBtn")?.addEventListener("click",async()=>{
-  if(!db) return;
-  const {data,error}=await db.auth.signUp({email:$("authEmail").value.trim(),password:$("authPassword").value});
-  $("authMessage").textContent=error?error.message:"Account created. If email confirmation is enabled, confirm the email before signing in.";
-  if(data?.user && data?.session){currentUser=data.user;renderAuthState();}
-});
-$("signOutBtn")?.addEventListener("click",async()=>{
-  if(!db) return;
-  await db.auth.signOut();currentUser=null;renderAuthState();$("savedProjects").innerHTML='<div class="empty-state">Sign in to load saved projects.</div>';
-});
-$("saveProjectBtn")?.addEventListener("click",async()=>{
-  if(!db || !currentUser){$("authMessage").textContent="Sign in before saving a project.";return;}
-  const c=lastCalc||calcProcess();
-  const projectName=$("saveProjectName").value.trim()||"RO Project";
-  const caseName=$("saveCaseName").value.trim()||"Design Case";
-  let {data:projects,error}=await db.from("projects").select("id").eq("name",projectName).eq("owner_id",currentUser.id).limit(1);
-  if(error){$("authMessage").textContent=error.message;return;}
-  let projectId=projects?.[0]?.id;
-  if(!projectId){
-    const ins=await db.from("projects").insert({name:projectName,description:"RO Engineer project",owner_id:currentUser.id}).select("id").single();
-    if(ins.error){$("authMessage").textContent=ins.error.message;return;}
-    projectId=ins.data.id;
-  }
-  const payload={
-    project_id:projectId,owner_id:currentUser.id,name:caseName,water_type:$("waterType").value,
-    feed_flow_m3h:c.feed,recovery_percent:c.recovery*100,feed_pressure_bar:c.feedP,ro_header_pressure_bar:c.roP,
-    reject_pressure_bar:c.rejectP,px_hp_in_m3h:c.pxHpIn,px_pressure_eff_percent:c.pxEff*100,hpp_eff_percent:c.hppEff*100,
-    cp_eff_percent:c.cpEff*100,feed_tds_mgl:c.feedTds,salt_rejection_percent:c.saltRej*100,temperature_c:num("temperature")
-  };
-  const insCase=await db.from("design_cases").insert(payload).select("id").single();
-  if(insCase.error){$("authMessage").textContent=insCase.error.message;return;}
-  await db.from("design_results").insert({
-    design_case_id:insCase.data.id,owner_id:currentUser.id,permeate_m3h:c.permeate,reject_total_m3h:c.rejectTotal,hpp_flow_m3h:c.hppFlow,
-    px_lp_in_m3h:c.pxLpIn,px_hp_out_m3h:c.pxHpOut,cp_flow_m3h:c.cpFlow,direct_reject_m3h:c.directReject,
-    hpp_power_kw:c.hppPower,cp_power_kw:c.cpPower,net_power_kw:c.totalPower,specific_energy_kwh_m3:c.sec,permeate_tds_mgl:c.permTds,reject_tds_mgl:c.rejectTds
-  });
-  $("authMessage").textContent="Design saved to Supabase.";
-  loadProjects();
-});
-
-async function loadProjects(){
-  if(!$("savedProjects")) return;
-  if(!db || !currentUser){$("savedProjects").innerHTML='<div class="empty-state">Sign in to load saved projects.</div>';return;}
-  const {data,error}=await db.from("design_cases").select("id,name,created_at,project_id,feed_flow_m3h,recovery_percent,feed_pressure_bar,ro_header_pressure_bar,reject_pressure_bar,px_hp_in_m3h,px_pressure_eff_percent,hpp_eff_percent,cp_eff_percent,feed_tds_mgl,salt_rejection_percent,temperature_c,projects(name)").eq("owner_id",currentUser.id).order("created_at",{ascending:false}).limit(30);
-  if(error){$("savedProjects").innerHTML='<div class="empty-state">'+escapeHtml(error.message)+'</div>';return;}
-  if(!data?.length){$("savedProjects").innerHTML='<div class="empty-state">No saved cases yet.</div>';return;}
-  $("savedProjects").innerHTML=data.map((x,i)=>'<div class="project-item"><b>'+escapeHtml(x.projects?.name||"RO Project")+'</b><small>'+escapeHtml(x.name)+' · '+new Date(x.created_at).toLocaleString()+'</small><button type="button" data-load-case="'+i+'">Load Case</button></div>').join("");
-  $("savedProjects").querySelectorAll("[data-load-case]").forEach(b=>b.addEventListener("click",()=>{
-    const x=data[Number(b.dataset.loadCase)];
-    $("feedFlow").value=x.feed_flow_m3h;$("recovery").value=x.recovery_percent;$("feedPressure").value=x.feed_pressure_bar;$("roPressure").value=x.ro_header_pressure_bar;
-    $("rejectPressure").value=x.reject_pressure_bar;$("pxHpIn").value=x.px_hp_in_m3h;$("pxPressureEff").value=x.px_pressure_eff_percent;$("hppEff").value=x.hpp_eff_percent;
-    $("cpEff").value=x.cp_eff_percent;$("feedTds").value=x.feed_tds_mgl;$("saltRejection").value=x.salt_rejection_percent;$("temperature").value=x.temperature_c;
-    $("project").innerHTML='<option>'+escapeHtml(x.projects?.name||"RO Project")+'</option>';$("case").innerHTML='<option>'+escapeHtml(x.name)+'</option>';
-    calcProcess();showView("process");
-  }));
-}
-
-function init(){
-  calcProcess();
-  calcMembrane();
-  initTroubleshooting();
-  runMeasuredBalance();
-  scanAlarms();
-  comparePerformance();
-  refreshAuth();
-}
-init();
-
-
-// ===== Contextual AI Troubleshooting Assistant =====
-function getAiContext(){
-  const c=lastCalc||calcProcess();
-  const diag=window.RO_TROUBLESHOOTING?.diagnostics?.[currentTroubleSymptom];
-  const branch=diag?.branchOptions ? (diag?.branches?.[currentTroubleBranch]||null) : diag;
-  const tol=Math.max(.1,num("mTolerance")||3);
-  const flowChecks=$("mFeed") ? [
-    {name:"Raw feed split",error:pctError(num("mHpp")+num("mPxLpIn"),num("mFeed"))},
-    {name:"RO header balance",error:pctError(num("mHpp")+num("mPxHpOut"),num("mRoFeed"))},
-    {name:"RO mass balance",error:pctError(num("mPerm")+num("mPxHpIn")+num("mDirectReject"),num("mRoFeed"))},
-    {name:"PX feed side",error:pctError(num("mPxHpOut"),num("mPxLpIn"))},
-    {name:"PX reject side",error:pctError(num("mPxLpOut"),num("mPxHpIn"))}
-  ] : [];
-  const worst=flowChecks.length?flowChecks.reduce((a,b)=>Math.abs(b.error)>Math.abs(a.error)?b:a,flowChecks[0]):null;
-  return {
-    c,diag,branch,tol,flowChecks,worst,
-    moduleP:num("alarmModuleP"),moduleDp:num("alarmModuleDp"),pxDp:num("alarmPxDp"),
-    conductivity:num("alarmProductCond"),
-    hppRef:num("alarmHppRef"),hppAct:num("alarmHppAct"),cpRef:num("alarmCpRef"),cpAct:num("alarmCpAct"),
-    pAlarm:Math.max(0,num("setModulePAlarm")||60),dpAlarm:Math.max(0,num("setModuleDpAlarm")||3),pxDpAlarm:Math.max(0,num("setPxDpAlarm")||2),
-    speedDev:Math.max(0,num("setSpeedDev")||2)
-  };
-}
-
-function updateAiContext(){
-  if(!$("aiContextChips")) return;
-  const x=getAiContext();
-  const chips=[
-    ["Symptom",x.diag?.title||"Not selected",""],
-    ["RO P",fmt(x.moduleP,1)+" bar",x.moduleP>=x.pAlarm?"bad":"good"],
-    ["RO ΔP",fmt(x.moduleDp,1)+" bar",x.moduleDp>=x.dpAlarm?"bad":"good"],
-    ["PX ΔP",fmt(x.pxDp,1)+" bar",x.pxDp>=x.pxDpAlarm?"bad":"good"],
-    ["Mass balance",x.c.balanced?"Closed":"Open",x.c.balanced?"good":"bad"],
-    ["HPP",fmt(x.hppAct,1)+"/"+fmt(x.hppRef,1)+" Hz",Math.abs(x.hppAct-x.hppRef)>x.speedDev?"warn":"good"],
-    ["CP",fmt(x.cpAct,1)+"/"+fmt(x.cpRef,1)+" Hz",Math.abs(x.cpAct-x.cpRef)>x.speedDev?"warn":"good"]
-  ];
-  $("aiContextChips").innerHTML=chips.map(([k,v,cls])=>'<span class="ts-ai-chip '+cls+'">'+escapeHtml(k)+': <b>'+escapeHtml(v)+'</b></span>').join("");
-}
-
-function buildAiAnswer(promptText){
-  const x=getAiContext();
-  const q=String(promptText||"").toLowerCase();
-  const branch=x.branch;
-  const likely=branch?.likely||x.diag?.likely||"The selected symptom still needs verification before a specific cause can be assigned.";
-  const checks=branch?.checks||x.diag?.checks||[];
-  const actions=branch?.actions||x.diag?.actions||[];
-  const flowBad=x.worst && Math.abs(x.worst.error)>x.tol;
-  const pxEvidence=(x.pxDp>=x.pxDpAlarm) || (x.flowChecks.some(f=>/px/i.test(f.name)&&Math.abs(f.error)>x.tol));
-  const pressureAlarm=x.moduleP>=x.pAlarm;
-  const dpAlarm=x.moduleDp>=x.dpAlarm;
-  const hppMismatch=Math.abs(x.hppAct-x.hppRef)>x.speedDev;
-  const cpMismatch=Math.abs(x.cpAct-x.cpRef)>x.speedDev;
-
-  if(q.includes("px") || q.includes("pressure exchanger")){
-    if(pxEvidence){
-      return "A PX-related issue is possible because the current data shows "+(x.pxDp>=x.pxDpAlarm?"PX ΔP at/above the "+fmt(x.pxDpAlarm,1)+" bar reference":"a PX-side flow imbalance")+". Before assigning an internal PX fault, verify the four PX flow/pressure measurements, bypass and isolation valves, and flowmeter scaling. If those checks are valid and the imbalance remains, proceed to PX condition inspection.";
+function runDiagnosis(a){
+  setSteps(4);
+  var r=result('warn','Follow the verified alarm procedure','No deeper plant-specific engineering decision tree is available for this alarm yet.',[],a.procedure.slice(-3));
+  var ev=[];
+  if(a.engineering==='high-module'){
+    var mb=n('dxModuleBefore'),mn=n('dxModuleNow'),rb=n('dxRejectBefore'),rn=n('dxRejectNow'),local=n('dxLocalGauge'),fb=n('dxFeedBefore'),fn=n('dxFeedNow'),px=n('dxPxDp'),hr=n('dxHppRef'),ha=n('dxHppActual'),cr=n('dxCpRef'),ca=n('dxCpActual'),bag=n('dxBagDp');
+    var dpb=mb-rb,dpn=mn-rn,dpr=dpn-dpb,fc=fb?((fn-fb)/fb*100):0,gauge=Math.abs(mn-local)<=1,hpp=Math.abs(hr-ha)<=0.5,cp=Math.abs(cr-ca)<=0.5;
+    ev=[['RO pressure',fmt(mn)+' bar'],['RO ΔP',fmt(dpn)+' bar'],['ΔP change',fmt(dpr)+' bar'],['Feed change',fmt(fc,1)+'%'],['PX ΔP',fmt(px)+' bar'],['Bag-filter ΔP',fmt(bag)+' bar'],['HPP tracking',hpp?'OK':'Mismatch'],['CP tracking',cp?'OK':'Mismatch']];
+    if(!gauge)r=result('bad','Pressure indication not confirmed','SCADA/PIT and local pressure do not agree closely enough. Verify the measurement chain before changing plant hydraulics.',[],['Check PIT/transmitter condition and scaling.','Confirm local gauge accuracy.','Re-run the diagnosis with a confirmed pressure value.']);
+    else if(!hpp||!cp)r=result('bad','Correct pump speed-reference tracking first','At least one fixed-reference pump is not following its reference, so the hydraulic diagnosis is not yet reliable.',[!hpp?'HPP actual does not follow reference.':'HPP tracking is normal.',!cp?'CP actual does not follow reference.':'CP tracking is normal.'],['Investigate the VFD/motor/control reason for the mismatch.','Re-check the pressure trend after speed tracking is restored.']);
+    else if((dpn>=T.highModuleDp||dpr>=0.7)&&fc<=-3)r=result('bad','Increasing RO hydraulic resistance is the primary direction','Module pressure rose while RO differential pressure increased and feed flow fell. This pattern supports increasing resistance through the RO path more than pure reject-side backpressure.',[],['Verify both module pressure measurements locally.','Check pretreatment and bag-filter DP and confirm feed valve position.','Localize the added pressure loss by stage/vessel where possible.','Investigate feed-channel fouling, scaling, debris or a restricted valve/line.','Do not simply reduce fixed HPP/CP references to suppress the symptom.']);
+    else if(Math.abs(dpr)<=0.5&&dpn<T.highModuleDp)r=result('warn','RO ΔP is stable — investigate backpressure / reject-side hydraulics','High inlet pressure with stable RO differential pressure points away from increasing membrane/feed-channel resistance.',[],['Verify concentrate/reject valve position and movement.','Check reject-line restriction and PX high-pressure path.','Check PX noise, PX DP and reject conductivity.','Check CP current/VFD while confirming actual speed remains at its fixed reference.']);
+    else r=result('warn','Mixed hydraulic pattern — localize before assigning a component fault','The current values do not cleanly separate RO restriction from reject-side backpressure.',[],['Trend module inlet pressure, reject pressure, feed flow, reject flow and PX DP over the same event window.','Use the direction of ΔP and flow change to separate RO resistance from backpressure.']);
+  }else if(a.engineering==='conductivity'){
+    var cb=n('dxCondBefore'),cn=n('dxCondNow'),cm=n('dxCondManual'),cf=n('dxFeedCond'),pb=n('dxPressureBase'),pn=n('dxPressureNow'),rrb=n('dxRecoveryBase'),rrn=n('dxRecoveryNow'),tb=n('dxTempBase'),tn=n('dxTempNow');
+    var manual=Math.abs(cm-cn)<=Math.max(50,.1*Math.max(cn,1)),rej=cf>0?(1-cn/cf)*100:0,rejB=cf>0?(1-cb/cf)*100:0,pchg=pn-pb,rchg=rrn-rrb,tchg=tn-tb;
+    ev=[['Conductivity',fmt(cn,0)+' µS/cm'],['Manual',fmt(cm,0)+' µS/cm'],['Salt rejection',fmt(rej,2)+'%'],['Pressure change',fmt(pchg)+' bar'],['Recovery change',fmt(rchg,1)+' pp'],['Temperature change',fmt(tchg,1)+' °C']];
+    if(!manual)r=result('bad','Conductivity reading not confirmed','The transmitter/SCADA value does not agree with the manual meter closely enough.',[],['Inspect/clean/calibrate the conductivity sensor.','Verify temperature compensation and signal scaling.','Repeat the manual comparison before membrane or PX diagnosis.']);
+    else{
+      var vessels=[];for(var i=1;i<=6;i++){var vv=n('dxPv'+i);if(vv>0)vessels.push({name:'PV-'+String(i).padStart(2,'0'),value:vv});}
+      var out=null;
+      if(vessels.length>=3){var vals=vessels.map(function(v){return v.value;}).sort(function(a,b){return a-b;});var med=vals[Math.floor(vals.length/2)];var mx=vessels.slice().sort(function(a,b){return b.value-a.value;})[0];if(mx.value>med*1.6&&mx.value-med>150)out={name:mx.name,value:mx.value,med:med};}
+      if(out)r=result('bad','Conductivity abnormality appears localized',out.name+' is materially higher than the other entered vessel values.',[out.name+' = '+fmt(out.value,0)+' µS/cm','Vessel median = '+fmt(out.med,0)+' µS/cm'],['Check the suspect vessel elements, interconnectors, O-rings and end connectors.','Compare the suspect vessel with adjacent vessels at similar hydraulic conditions.']);
+      else if(pchg<=-1)r=result('warn','Investigate why RO operating pressure fell','The conductivity rise is accompanied by lower module pressure while HPP/CP references are expected to remain fixed.',[],['Verify feed flow and upstream restriction.','Check PX/CP branch condition and actual speed tracking.','Reassess product conductivity after the pressure condition is corrected.']);
+      else if(rchg>=2)r=result('warn','Verify excessive recovery / flow balance first','Recovery is above baseline enough to affect product-quality interpretation.',[],['Verify feed, permeate and reject flowmeters.','Recalculate recovery from confirmed measurements.','Return to the approved recovery range before judging membrane integrity.']);
+      else r=result('warn','Investigate increasing salt passage through the RO system','The conductivity reading is confirmed and no single entered operating change fully explains it.',[],['Confirm borewell-feed conductivity remains near its normal baseline.','Compare normalized salt passage/rejection with commissioning or clean baseline.','Sample individual vessel permeate conductivity to localize the problem.','If all vessels deteriorate similarly, investigate system-wide membrane condition, chemical exposure/oxidation, aging, temperature effects and operating pressure.']);
     }
-    return "The current entries do not give strong evidence of an internal PX fault. PX ΔP is "+fmt(x.pxDp,1)+" bar and the measured PX balance is "+(flowBad?"not fully closed":"within tolerance")+". Check instrumentation, valve lineup and CP operating point first; only then escalate to the PX.";
+  }else if(a.engineering==='high-module-dp'){
+    var pi=n('dxInletP'),po=n('dxRejectP'),li=n('dxLocalInlet'),lo=n('dxLocalReject'),ff=n('dxFeedFlow'),bd=n('dxBagDp2'),pd=n('dxPxDp2'),dp=pi-po,ok=Math.abs(pi-li)<=1&&Math.abs(po-lo)<=1;
+    ev=[['RO ΔP',fmt(dp)+' bar'],['Feed',fmt(ff,0)+' m³/h'],['Bag-filter ΔP',fmt(bd)+' bar'],['PX ΔP',fmt(pd)+' bar'],['Pressure verification',ok?'Confirmed':'Mismatch']];
+    if(!ok)r=result('bad','Verify the pressure measurements first','At least one SCADA/transmitter value does not agree closely enough with the local pressure.',[],['Check both pressure instruments and scaling.','Repeat the ΔP calculation after measurement confirmation.']);
+    else if(dp>=T.highModuleDp)r=result('bad','High RO differential pressure confirmed','The calculated RO differential pressure is at/above the 3 bar reference.',[],['Check feed flow and pretreatment/filter pressure loss.','Localize the pressure drop by stage/vessel where instrumentation allows.','Investigate feed-channel restriction, fouling, scaling, debris or a restricted valve/line before changing fixed pump references.']);
+    else r=result('warn','Entered RO ΔP is below the alarm reference','The entered values calculate to '+fmt(dp)+' bar, below 3 bar.',[],['Compare values at the exact alarm timestamp.','Check for transient pressure spikes or instrument issues.']);
+  }else if(a.engineering==='low-booster'){
+    var fs=n('dxBoosterScada'),fl=n('dxBoosterLocal'),md=n('dxModuleDp3'),pxd=n('dxPxDp3'),cpr=n('dxCpRef3'),cpa=n('dxCpActual3'),ci=n('dxCpCurrent3'),flowOk=Math.abs(fs-fl)<=Math.max(3,.05*Math.max(fs,1)),speedOk=Math.abs(cpr-cpa)<=0.5;
+    ev=[['Booster flow',fmt(fs,0)+' m³/h'],['Local flow',fmt(fl,0)+' m³/h'],['RO ΔP',fmt(md)+' bar'],['PX ΔP',fmt(pxd)+' bar'],['CP speed',fmt(cpa)+'/'+fmt(cpr)+' Hz'],['CP current',fmt(ci,0)+' A']];
+    if(!flowOk)r=result('bad','Flow measurement not confirmed','SCADA and local booster-flow values do not agree closely enough.',[],['Check flowmeter condition and scaling.','Repeat the diagnosis with a confirmed flow value.']);
+    else if(!speedOk)r=result('bad','CP speed is not following its reference','Correct the CP/VFD tracking problem before diagnosing the PX hydraulically.',[],['Check VFD status/faults and actual motor speed.','Recheck booster flow after speed tracking is restored.']);
+    else if(pxd>T.pxDp)r=result('warn','PX path needs investigation','PX differential pressure is above the 2 bar reference while the booster-flow measurement is confirmed.',[],['Check PX noise and reject conductivity.','Check valve/bypass lineup and PX flow balance.','Escalate to PX inspection only after instruments and external hydraulics are verified.']);
+    else r=result('warn','PX ΔP and CP speed look normal','The basic PX/CP indicators entered here do not identify an obvious PX or CP fault.',[],['Check startup condition and module ΔP.','Check valve/line restriction and confirm all flow measurements.','Use Flow Balance to test the PX branch relationships.']);
+  }else if(a.engineering==='low-inlet'){
+    var ps=n('dxLowScada'),pl=n('dxLowLocal'),bh=n('dxBoreholes'),f2=n('dxFeedFlow2'),confirm=Math.abs(ps-pl)<=0.3;
+    ev=[['SCADA pressure',fmt(ps)+' bar'],['Local pressure',fmt(pl)+' bar'],['Boreholes',fmt(bh,0)],['Feed flow',fmt(f2,0)+' m³/h']];
+    if(!confirm)r=result('bad','Pressure reading not confirmed','SCADA and local pressure do not agree.',[],['Check the pressure transmitter and scaling before changing borehole operation.']);
+    else r=result('warn','Low inlet pressure is confirmed','The low pressure is present locally as well as in SCADA.',[],['Check borehole/network pressure and availability.','Confirm the bypass is closed.','Increase boreholes according to the approved operating procedure if source pressure is low.']);
+  }else if(a.engineering==='hpp-feedback'){
+    var vf=byId('dxVfdFault').value,mr=byId('dxMotorRuns').value,rc=byId('dxRunCommand').value,fbk=byId('dxFeedback').value;
+    ev=[['VFD fault',vf],['Motor running',mr],['Run command',rc],['Running feedback',fbk]];
+    if(vf==='yes')r=result('bad','Active VFD fault is the first diagnostic direction','Read and record the active fault code and follow the approved drive-specific alarm procedure.',[],['Do not repeatedly reset a recurring protection fault.','Reset only where the approved procedure permits.']);
+    else if(mr==='yes'&&fbk==='no')r=result('warn','Running-feedback circuit / signal fault likely','The motor is physically running while feedback remains absent.',[],['Check the running-feedback switch/signal, PLC input and mapping.','Keep the motor condition separate from the feedback problem.']);
+    else r=result('warn','Motor is not confirmed running','With no active VFD fault entered, continue through run command, permissive/interlock and motor checks.',[],['Confirm run command and permissives.','Check motor/electrical condition and drive status.','Escalate if the cause is not identified.']);
   }
-
-  if(q.includes("verify") || q.includes("first") || q.includes("check")){
-    const first=checks.slice(0,4);
-    return "Verify in this order: "+(first.length?first.map((s,i)=>(i+1)+") "+s).join(" "):"1) confirm the symptom with a second valid measurement; 2) close the flow balance; 3) verify valve lineup; 4) compare reference vs actual pump/VFD values.")+" The aim is to separate measurement/control issues from a genuine hydraulic or mechanical fault.";
-  }
-
-  if(q.includes("action") || q.includes("do next") || q.includes("recommend")){
-    if(!actions.length) return "Do not change pump speed or valve setpoints yet. First confirm the measurements and isolate which balance or pressure relationship is abnormal.";
-    return "Recommended next action: "+actions.join(" ")+" Record the before/after values so the corrective action can be verified.";
-  }
-
-  if(q.includes("flow") || q.includes("balance")){
-    if(!x.worst) return "Enter the measured flow values in Flow Balancing first.";
-    if(Math.abs(x.worst.error)<=x.tol) return "All current measured balances are within ±"+fmt(x.tol,1)+"%. That makes a gross flowmeter/bypass imbalance less likely. Continue with pressure trend, speed tracking and component-specific checks.";
-    return x.worst.name+" is the largest mismatch at "+fmt(x.worst.error,1)+"%. Treat that first as a measurement, bypass, drain or unaccounted-flow problem. Verify the affected meters and valve lineup before diagnosing the PX, HPP or CP.";
-  }
-
-  if(q.includes("conduct") || q.includes("tds") || q.includes("quality")){
-    return "For rising product conductivity with comparatively stable borewell feed, verify the product conductivity analyzer first. Then compare RO pressure, recovery and temperature with normal operation, calculate salt rejection, and compare vessel/train product quality. Only after those checks support it should membrane or vessel integrity become the leading cause.";
-  }
-
-  let qualifiers=[];
-  if(pressureAlarm) qualifiers.push("module inlet pressure is at/above alarm");
-  if(dpAlarm) qualifiers.push("RO module ΔP is at/above alarm");
-  if(x.pxDp>=x.pxDpAlarm) qualifiers.push("PX ΔP is at/above its reference");
-  if(hppMismatch) qualifiers.push("HPP actual speed does not track reference");
-  if(cpMismatch) qualifiers.push("CP actual speed does not track reference");
-  if(flowBad) qualifiers.push(x.worst.name+" is outside flow-balance tolerance");
-
-  return "Working diagnosis: "+likely+(qualifiers.length?" Current supporting observations: "+qualifiers.join("; ")+".":" Current entered parameters do not show a threshold alarm that independently confirms the fault.")+" Use the verification sequence before treating this as a confirmed equipment failure.";
+  evidence(ev);
+  renderResult(r);
 }
-
-function addAiMessage(role,text){
-  if(!$("aiConversation")) return;
-  const wrap=document.createElement("div");
-  wrap.className="ai-message "+(role==="user"?"user":"assistant");
-  wrap.innerHTML='<span class="ai-avatar">'+(role==="user"?"YOU":"AI")+'</span><div><b>'+(role==="user"?"Engineer":"RO Engineering Assistant")+'</b><p>'+escapeHtml(text)+'</p></div>';
-  $("aiConversation").appendChild(wrap);
-  $("aiConversation").scrollTop=$("aiConversation").scrollHeight;
+function renderResult(r){
+  var h=$('#diagnosisResult');h.classList.remove('hidden');
+  h.innerHTML='<div class="panel-head"><div><span class="eyebrow">ENGINEERING RESULT</span><h2>Diagnostic direction</h2></div><span class="status-badge status-info">Evidence-based</span></div><div class="result-banner '+r.level+'"><h3>'+esc(r.headline)+'</h3><p>'+esc(r.text)+'</p></div>'+
+  (r.findings.length?'<div class="findings">'+r.findings.map(function(x){return '<div class="finding"><b>Finding</b><p>'+esc(x)+'</p></div>';}).join('')+'</div>':'')+
+  '<div class="panel-head" style="margin-top:16px"><div><span class="eyebrow">NEXT ACTION</span><h2>Recommended checks</h2></div></div><div class="procedure-list">'+r.actions.map(function(s,i){return '<div class="procedure-step"><b>'+String(i+1).padStart(2,'0')+'</b><p>'+esc(s)+'</p></div>';}).join('')+'</div>';
+  h.scrollIntoView({behavior:'smooth',block:'start'});
+  renderAssistantContext();
 }
+if($('#askAboutAlarm'))$('#askAboutAlarm').addEventListener('click',function(){nav('assistant');});
 
-function askAi(text){
-  const question=String(text||$("aiQuestion")?.value||"").trim();
-  if(!question) return;
-  addAiMessage("user",question);
-  const answer=buildAiAnswer(question);
-  addAiMessage("assistant",answer);
-  if($("aiQuestion")) $("aiQuestion").value="";
-  updateAiContext();
+var flowFields=[['fbFeed','Total Feed',188],['fbHpp','HPP Branch',78],['fbLpIn','PX LP IN',110],['fbRoFeed','RO Feed Header',188],['fbHpOut','PX HP OUT',110],['fbPerm','Permeate',50],['fbHpIn','PX HP IN',110],['fbLpOut','PX LP OUT',110],['fbDirect','Direct Reject',28]];
+function renderFlowInputs(){
+  $('#flowInputs').innerHTML=flowFields.map(function(x){return '<label class="flow-field"><span>'+x[1]+'</span><div><input id="'+x[0]+'" type="number" value="'+x[2]+'" step="0.1"><b>m³/h</b></div></label>';}).join('');
+  flowFields.forEach(function(x){byId(x[0]).addEventListener('input',updateMap);});
 }
+function updateMap(){
+  var m={mapFeed:n('fbFeed'),mapHpp:n('fbHpp'),mapLpIn:n('fbLpIn'),mapRoFeed:n('fbRoFeed'),mapPerm:n('fbPerm'),mapHpIn:n('fbHpIn'),mapDirect:n('fbDirect')};
+  Object.keys(m).forEach(function(id){if(byId(id))byId(id).textContent=fmt(m[id],0);});
+}
+function pctErr(actual,expected){return Math.abs(expected)>1e-9?(actual-expected)/Math.abs(expected)*100:0;}
+function runBalance(){
+  var tol=Math.max(.1,n('fbTolerance')||3);
+  var f={feed:n('fbFeed'),hpp:n('fbHpp'),lpIn:n('fbLpIn'),roFeed:n('fbRoFeed'),hpOut:n('fbHpOut'),perm:n('fbPerm'),hpIn:n('fbHpIn'),lpOut:n('fbLpOut'),direct:n('fbDirect')};
+  var checks=[
+    {name:'Feed split',eq:'Feed = HPP + PX LP IN',error:pctErr(f.hpp+f.lpIn,f.feed),detail:'Tests whether the feed split closes.'},
+    {name:'RO header',eq:'RO Feed = HPP + PX HP OUT',error:pctErr(f.hpp+f.hpOut,f.roFeed),detail:'Tests the high-pressure header balance.'},
+    {name:'RO mass balance',eq:'RO Feed = Permeate + PX HP IN + Direct Reject',error:pctErr(f.perm+f.hpIn+f.direct,f.roFeed),detail:'Tests the membrane-train outlet balance.'},
+    {name:'PX feed side',eq:'PX LP IN ≈ PX HP OUT',error:pctErr(f.hpOut,f.lpIn),detail:'A mismatch first points to metering, leakage/bypass or operating-point issues.'},
+    {name:'PX reject side',eq:'PX HP IN ≈ PX LP OUT',error:pctErr(f.lpOut,f.hpIn),detail:'A mismatch first points to metering, leakage/bypass or operating-point issues.'}
+  ];
+  checks.forEach(function(c){c.level=Math.abs(c.error)<=tol?'good':Math.abs(c.error)<=tol*2?'warn':'bad';});
+  state.balance={tol:tol,f:f,checks:checks};renderBalanceSummary();renderBalanceInterpretation();renderAssistantContext();
+}
+function renderBalanceSummary(){
+  var data=state.balance?state.balance.checks:[
+    {name:'Feed split',error:0,level:'good'},{name:'RO mass balance',error:0,level:'good'},{name:'PX feed side',error:0,level:'good'},{name:'PX reject side',error:0,level:'good'}
+  ];
+  var wanted=['Feed split','RO mass balance','PX feed side','PX reject side'];
+  $('#balanceSummary').innerHTML=wanted.map(function(name){var c=data.find(function(x){return x.name===name;})||{error:0,level:'good'};return '<div class="balance-kpi '+c.level+'"><small>'+name+'</small><strong>'+fmt(Math.abs(c.error),1)+'%</strong><span>'+c.level.toUpperCase()+'</span></div>';}).join('');
+}
+function renderBalanceInterpretation(){
+  var h=$('#balanceInterpretation');
+  if(!state.balance){h.innerHTML='<div class="muted">Enter measured flows and run the balance check.</div>';return;}
+  var bad=state.balance.checks.filter(function(c){return c.level!=='good';});
+  var intro=!bad.length?'<div class="result-banner good"><h3>All measured relationships close within tolerance</h3><p>A gross meter/bypass imbalance is less likely. If a hydraulic symptom remains, continue with pressure, valve, pump and PX checks.</p></div>':'<div class="result-banner warn"><h3>One or more balances are open</h3><p>Verify affected meters, bypass/isolation valves, drains/sample lines and unaccounted flows before assigning an internal PX, HPP or CP fault.</p></div>';
+  h.innerHTML=intro+'<div class="interpretation-list">'+state.balance.checks.map(function(c){return '<div class="interpretation-item '+c.level+'"><i></i><div><b>'+esc(c.name)+' · '+fmt(c.error,1)+'%</b><p>'+esc(c.eq)+'. '+esc(c.detail)+'</p></div></div>';}).join('')+'</div>';
+}
+function renderBalance(){updateMap();renderBalanceSummary();renderBalanceInterpretation();}
+if($('#runBalance'))$('#runBalance').addEventListener('click',runBalance);
+if($('#loadBalancedExample'))$('#loadBalancedExample').addEventListener('click',function(){flowFields.forEach(function(x){byId(x[0]).value=x[2];});byId('fbTolerance').value=3;updateMap();runBalance();});
+if($('#balanceAiBtn'))$('#balanceAiBtn').addEventListener('click',function(){nav('assistant');});
 
-$("askAiBtn")?.addEventListener("click",()=>askAi());
-$("aiQuestion")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();askAi();}});
-$$("[data-ai-prompt]").forEach(btn=>btn.addEventListener("click",()=>{
-  const map={summarize:"Summarize the likely cause from the current data.",verify:"What should I verify first?",px:"Could this be a PX problem?",action:"What is the recommended next action?"};
-  askAi(map[btn.dataset.aiPrompt]||btn.textContent);
-}));
-$("askAiBalance")?.addEventListener("click",()=>{
-  const answer=buildAiAnswer("Interpret the current flow balance and tell me what to check next.");
-  const el=$("flowAiInterpretation");
-  if(el){el.classList.remove("hidden");el.innerHTML='<b>AI interpretation:</b> '+escapeHtml(answer);}
-});
-["alarmModuleP","alarmModuleDp","alarmPxDp","alarmProductCond","alarmHppRef","alarmHppAct","alarmCpRef","alarmCpAct",
- "mFeed","mHpp","mPxLpIn","mRoFeed","mPxHpOut","mPerm","mPxHpIn","mPxLpOut","mDirectReject","mTolerance"]
-.forEach(id=>$(id)?.addEventListener("input",updateAiContext));
+function renderAssistantContext(){
+  var parts=[];
+  if(state.alarm)parts.push(['Active alarm',state.alarm.title],['Tag',state.alarm.tag],['Trigger',state.alarm.trigger]);
+  var e=Object.keys(state.evidence||{});if(e.length)parts.push(['Evidence',e.slice(0,3).map(function(k){return k+': '+state.evidence[k];}).join(' · ')]);
+  if(state.balance){var worst=state.balance.checks.slice().sort(function(a,b){return Math.abs(b.error)-Math.abs(a.error);})[0];parts.push(['Flow balance','Largest mismatch: '+worst.name+' '+fmt(worst.error,1)+'%']);}
+  $('#assistantContext').innerHTML=parts.length?parts.map(function(x){return '<div class="context-pill"><small>'+esc(x[0])+'</small><b>'+esc(x[1])+'</b></div>';}).join(''):'<div class="context-pill"><small>Context</small><b>No alarm or balance selected yet</b></div>';
+}
+function answer(q){
+  var a=state.alarm,t=q.toLowerCase();
+  if(!a)return 'Select an alarm first. I can then use the alarm-guide procedure and the evidence you enter instead of giving a generic answer.';
+  if(t.indexOf('verify')>=0||t.indexOf('first')>=0)return 'Start with the alarm-guide checks for '+a.title+': '+a.procedure.slice(0,3).join(' ')+' If those confirm the alarm is genuine, continue to engineering correlation.';
+  if(t.indexOf('px')>=0){
+    if(state.balance){var px=state.balance.checks.filter(function(c){return c.name.indexOf('PX')>=0;});var open=px.some(function(c){return c.level!=='good';});return open?'A PX-related issue is possible because at least one PX flow relationship is outside tolerance. Before calling the PX faulty, verify the four flowmeters, bypass/isolation valves and leakage or unaccounted-flow paths.':'The PX flow relationships are within tolerance. That makes a gross flow imbalance less likely; use pressure-transfer, ΔP, noise, conductivity and CP evidence next.';}
+    return 'Do not conclude PX fault from the alarm name alone. Check PX differential pressure, the four PX flow relationships, bypass/valve lineup, CP condition and instrument validity first.';
+  }
+  if(t.indexOf('likely')>=0||t.indexOf('direction')>=0){
+    if(Object.keys(state.evidence).length)return 'Use the engineering result as the leading direction, but not as a confirmed component failure. The entered evidence is: '+Object.keys(state.evidence).slice(0,5).map(function(k){return k+' '+state.evidence[k];}).join(', ')+'.';
+    return 'The alarm guide lists these first-line causes for '+a.title+': '+a.causes.join(', ')+'. Run the engineering diagnosis before choosing among them.';
+  }
+  if(t.indexOf('flow')>=0||t.indexOf('balance')>=0){
+    if(!state.balance)return 'Open Flow Balance and enter the measured values first.';
+    var w=state.balance.checks.slice().sort(function(x,y){return Math.abs(y.error)-Math.abs(x.error);})[0];
+    return 'The largest balance mismatch is '+w.name+' at '+fmt(w.error,1)+'%. Treat that first as a measurement, bypass, drain or unaccounted-flow problem before blaming equipment.';
+  }
+  if(t.indexOf('conduct')>=0||t.indexOf('quality')>=0)return 'For rising product conductivity, confirm the reading with a manual meter first, then check salt rejection, RO pressure, recovery and temperature, and finally compare vessel permeate conductivity. The uploaded alarm guide has a product-versus-concentrate wording inconsistency for QIT01 that should be resolved before final commissioning.';
+  return 'For '+a.title+', keep the sequence: confirm the condition, complete the MWSC alarm-guide checks, collect only the readings relevant to the alarm, then use engineering correlation to choose the next inspection path. Do not jump straight to a component failure.';
+}
+function addMsg(role,text){var d=document.createElement('div');d.className='message '+role;d.innerHTML='<span>'+(role==='assistant'?'✦':'YOU')+'</span><p>'+esc(text)+'</p>';$('#chatLog').appendChild(d);$('#chatLog').scrollTop=$('#chatLog').scrollHeight;}
+function send(text){var q=String(text||$('#chatInput').value||'').trim();if(!q)return;addMsg('user',q);addMsg('assistant',answer(q));$('#chatInput').value='';}
+if($('#sendChat'))$('#sendChat').addEventListener('click',function(){send();});
+if($('#chatInput'))$('#chatInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();send();}});
+$$('[data-prompt]').forEach(function(b){b.addEventListener('click',function(){send(b.getAttribute('data-prompt'));});});
 
-const _oldRenderTroubleResult=renderTroubleResult;
-renderTroubleResult=function(){
-  _oldRenderTroubleResult();
-  updateAiContext();
-};
-
-updateAiContext();
+renderHome();renderFilters();renderAlarms();renderFlowInputs();renderBalance();renderAssistantContext();
+})();
