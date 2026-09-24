@@ -632,3 +632,135 @@ function init(){
   refreshAuth();
 }
 init();
+
+
+// ===== Contextual AI Troubleshooting Assistant =====
+function getAiContext(){
+  const c=lastCalc||calcProcess();
+  const diag=window.RO_TROUBLESHOOTING?.diagnostics?.[currentTroubleSymptom];
+  const branch=diag?.branchOptions ? (diag?.branches?.[currentTroubleBranch]||null) : diag;
+  const tol=Math.max(.1,num("mTolerance")||3);
+  const flowChecks=$("mFeed") ? [
+    {name:"Raw feed split",error:pctError(num("mHpp")+num("mPxLpIn"),num("mFeed"))},
+    {name:"RO header balance",error:pctError(num("mHpp")+num("mPxHpOut"),num("mRoFeed"))},
+    {name:"RO mass balance",error:pctError(num("mPerm")+num("mPxHpIn")+num("mDirectReject"),num("mRoFeed"))},
+    {name:"PX feed side",error:pctError(num("mPxHpOut"),num("mPxLpIn"))},
+    {name:"PX reject side",error:pctError(num("mPxLpOut"),num("mPxHpIn"))}
+  ] : [];
+  const worst=flowChecks.length?flowChecks.reduce((a,b)=>Math.abs(b.error)>Math.abs(a.error)?b:a,flowChecks[0]):null;
+  return {
+    c,diag,branch,tol,flowChecks,worst,
+    moduleP:num("alarmModuleP"),moduleDp:num("alarmModuleDp"),pxDp:num("alarmPxDp"),
+    conductivity:num("alarmProductCond"),
+    hppRef:num("alarmHppRef"),hppAct:num("alarmHppAct"),cpRef:num("alarmCpRef"),cpAct:num("alarmCpAct"),
+    pAlarm:Math.max(0,num("setModulePAlarm")||60),dpAlarm:Math.max(0,num("setModuleDpAlarm")||3),pxDpAlarm:Math.max(0,num("setPxDpAlarm")||2),
+    speedDev:Math.max(0,num("setSpeedDev")||2)
+  };
+}
+
+function updateAiContext(){
+  if(!$("aiContextChips")) return;
+  const x=getAiContext();
+  const chips=[
+    ["Symptom",x.diag?.title||"Not selected",""],
+    ["RO P",fmt(x.moduleP,1)+" bar",x.moduleP>=x.pAlarm?"bad":"good"],
+    ["RO ΔP",fmt(x.moduleDp,1)+" bar",x.moduleDp>=x.dpAlarm?"bad":"good"],
+    ["PX ΔP",fmt(x.pxDp,1)+" bar",x.pxDp>=x.pxDpAlarm?"bad":"good"],
+    ["Mass balance",x.c.balanced?"Closed":"Open",x.c.balanced?"good":"bad"],
+    ["HPP",fmt(x.hppAct,1)+"/"+fmt(x.hppRef,1)+" Hz",Math.abs(x.hppAct-x.hppRef)>x.speedDev?"warn":"good"],
+    ["CP",fmt(x.cpAct,1)+"/"+fmt(x.cpRef,1)+" Hz",Math.abs(x.cpAct-x.cpRef)>x.speedDev?"warn":"good"]
+  ];
+  $("aiContextChips").innerHTML=chips.map(([k,v,cls])=>'<span class="ts-ai-chip '+cls+'">'+escapeHtml(k)+': <b>'+escapeHtml(v)+'</b></span>').join("");
+}
+
+function buildAiAnswer(promptText){
+  const x=getAiContext();
+  const q=String(promptText||"").toLowerCase();
+  const branch=x.branch;
+  const likely=branch?.likely||x.diag?.likely||"The selected symptom still needs verification before a specific cause can be assigned.";
+  const checks=branch?.checks||x.diag?.checks||[];
+  const actions=branch?.actions||x.diag?.actions||[];
+  const flowBad=x.worst && Math.abs(x.worst.error)>x.tol;
+  const pxEvidence=(x.pxDp>=x.pxDpAlarm) || (x.flowChecks.some(f=>/px/i.test(f.name)&&Math.abs(f.error)>x.tol));
+  const pressureAlarm=x.moduleP>=x.pAlarm;
+  const dpAlarm=x.moduleDp>=x.dpAlarm;
+  const hppMismatch=Math.abs(x.hppAct-x.hppRef)>x.speedDev;
+  const cpMismatch=Math.abs(x.cpAct-x.cpRef)>x.speedDev;
+
+  if(q.includes("px") || q.includes("pressure exchanger")){
+    if(pxEvidence){
+      return "A PX-related issue is possible because the current data shows "+(x.pxDp>=x.pxDpAlarm?"PX ΔP at/above the "+fmt(x.pxDpAlarm,1)+" bar reference":"a PX-side flow imbalance")+". Before assigning an internal PX fault, verify the four PX flow/pressure measurements, bypass and isolation valves, and flowmeter scaling. If those checks are valid and the imbalance remains, proceed to PX condition inspection.";
+    }
+    return "The current entries do not give strong evidence of an internal PX fault. PX ΔP is "+fmt(x.pxDp,1)+" bar and the measured PX balance is "+(flowBad?"not fully closed":"within tolerance")+". Check instrumentation, valve lineup and CP operating point first; only then escalate to the PX.";
+  }
+
+  if(q.includes("verify") || q.includes("first") || q.includes("check")){
+    const first=checks.slice(0,4);
+    return "Verify in this order: "+(first.length?first.map((s,i)=>(i+1)+") "+s).join(" "):"1) confirm the symptom with a second valid measurement; 2) close the flow balance; 3) verify valve lineup; 4) compare reference vs actual pump/VFD values.")+" The aim is to separate measurement/control issues from a genuine hydraulic or mechanical fault.";
+  }
+
+  if(q.includes("action") || q.includes("do next") || q.includes("recommend")){
+    if(!actions.length) return "Do not change pump speed or valve setpoints yet. First confirm the measurements and isolate which balance or pressure relationship is abnormal.";
+    return "Recommended next action: "+actions.join(" ")+" Record the before/after values so the corrective action can be verified.";
+  }
+
+  if(q.includes("flow") || q.includes("balance")){
+    if(!x.worst) return "Enter the measured flow values in Flow Balancing first.";
+    if(Math.abs(x.worst.error)<=x.tol) return "All current measured balances are within ±"+fmt(x.tol,1)+"%. That makes a gross flowmeter/bypass imbalance less likely. Continue with pressure trend, speed tracking and component-specific checks.";
+    return x.worst.name+" is the largest mismatch at "+fmt(x.worst.error,1)+"%. Treat that first as a measurement, bypass, drain or unaccounted-flow problem. Verify the affected meters and valve lineup before diagnosing the PX, HPP or CP.";
+  }
+
+  if(q.includes("conduct") || q.includes("tds") || q.includes("quality")){
+    return "For rising product conductivity with comparatively stable borewell feed, verify the product conductivity analyzer first. Then compare RO pressure, recovery and temperature with normal operation, calculate salt rejection, and compare vessel/train product quality. Only after those checks support it should membrane or vessel integrity become the leading cause.";
+  }
+
+  let qualifiers=[];
+  if(pressureAlarm) qualifiers.push("module inlet pressure is at/above alarm");
+  if(dpAlarm) qualifiers.push("RO module ΔP is at/above alarm");
+  if(x.pxDp>=x.pxDpAlarm) qualifiers.push("PX ΔP is at/above its reference");
+  if(hppMismatch) qualifiers.push("HPP actual speed does not track reference");
+  if(cpMismatch) qualifiers.push("CP actual speed does not track reference");
+  if(flowBad) qualifiers.push(x.worst.name+" is outside flow-balance tolerance");
+
+  return "Working diagnosis: "+likely+(qualifiers.length?" Current supporting observations: "+qualifiers.join("; ")+".":" Current entered parameters do not show a threshold alarm that independently confirms the fault.")+" Use the verification sequence before treating this as a confirmed equipment failure.";
+}
+
+function addAiMessage(role,text){
+  if(!$("aiConversation")) return;
+  const wrap=document.createElement("div");
+  wrap.className="ai-message "+(role==="user"?"user":"assistant");
+  wrap.innerHTML='<span class="ai-avatar">'+(role==="user"?"YOU":"AI")+'</span><div><b>'+(role==="user"?"Engineer":"RO Engineering Assistant")+'</b><p>'+escapeHtml(text)+'</p></div>';
+  $("aiConversation").appendChild(wrap);
+  $("aiConversation").scrollTop=$("aiConversation").scrollHeight;
+}
+
+function askAi(text){
+  const question=String(text||$("aiQuestion")?.value||"").trim();
+  if(!question) return;
+  addAiMessage("user",question);
+  const answer=buildAiAnswer(question);
+  addAiMessage("assistant",answer);
+  if($("aiQuestion")) $("aiQuestion").value="";
+  updateAiContext();
+}
+
+$("askAiBtn")?.addEventListener("click",()=>askAi());
+$("aiQuestion")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();askAi();}});
+$$("[data-ai-prompt]").forEach(btn=>btn.addEventListener("click",()=>{
+  const map={summarize:"Summarize the likely cause from the current data.",verify:"What should I verify first?",px:"Could this be a PX problem?",action:"What is the recommended next action?"};
+  askAi(map[btn.dataset.aiPrompt]||btn.textContent);
+}));
+$("askAiBalance")?.addEventListener("click",()=>{
+  const answer=buildAiAnswer("Interpret the current flow balance and tell me what to check next.");
+  const el=$("flowAiInterpretation");
+  if(el){el.classList.remove("hidden");el.innerHTML='<b>AI interpretation:</b> '+escapeHtml(answer);}
+});
+["alarmModuleP","alarmModuleDp","alarmPxDp","alarmProductCond","alarmHppRef","alarmHppAct","alarmCpRef","alarmCpAct",
+ "mFeed","mHpp","mPxLpIn","mRoFeed","mPxHpOut","mPerm","mPxHpIn","mPxLpOut","mDirectReject","mTolerance"]
+.forEach(id=>$(id)?.addEventListener("input",updateAiContext));
+
+const _oldRenderTroubleResult=renderTroubleResult;
+renderTroubleResult=function(){
+  _oldRenderTroubleResult();
+  updateAiContext();
+};
