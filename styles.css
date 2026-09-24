@@ -312,3 +312,28 @@ background-size:24px 24px;overflow:hidden;margin-top:12px}
   .static-canvas-shell .designer-canvas{height:430px}
   .static-canvas-shell .design-stage{width:1040px;height:460px}
 }
+
+
+/* Compact RO process blocks */
+.static-canvas-shell .design-node{
+  width:92px;
+  min-height:58px;
+  padding:7px 8px;
+  border-radius:11px;
+  gap:3px;
+}
+.static-canvas-shell .design-node .node-icon{
+  width:28px;
+  height:28px;
+  border-radius:9px;
+  font-size:9px;
+}
+.static-canvas-shell .design-node strong{font-size:9px}
+.static-canvas-shell .design-node small{font-size:7px}
+.static-canvas-shell .stream-label{
+  min-width:76px;
+  padding:4px 6px;
+  border-radius:7px;
+}
+.static-canvas-shell .stream-label b{font-size:7.5px}
+.static-canvas-shell .stream-label small{font-size:6.5px}
