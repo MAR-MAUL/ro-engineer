@@ -290,3 +290,25 @@ background-size:24px 24px;overflow:hidden;margin-top:12px}
 @media(max-width:780px){
   .fb-visual-canvas{min-width:900px;height:380px}
 }
+
+
+/* ===== Simplified static process schematics ===== */
+.design-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.static-canvas-shell{width:100%}
+.static-canvas-shell .designer-canvas{height:500px}
+.static-canvas-shell .design-stage{width:1040px;height:480px}
+.static-node{cursor:default;pointer-events:none}
+.static-node:hover{border-color:#d7d1dc;box-shadow:0 7px 18px rgba(69,57,73,.09);transform:none}
+.design-node.filter .node-icon{background:var(--amber-soft);color:#a46b18}
+.static-stream{cursor:default;pointer-events:none}
+.static-stream:hover{border-color:#ddd7df}
+.design-link{stroke-width:3.2}
+.fb-path{stroke-width:3.2}
+@media(max-width:1180px){
+  .design-settings-grid{grid-template-columns:1fr}
+}
+@media(max-width:780px){
+  .design-settings-grid{grid-template-columns:1fr}
+  .static-canvas-shell .designer-canvas{height:430px}
+  .static-canvas-shell .design-stage{width:1040px;height:460px}
+}
