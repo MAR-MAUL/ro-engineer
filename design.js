@@ -98,7 +98,7 @@ function nodeHTML(id,n){
 }
 
 function portPoint(n,port){
-  var w=112,h=70;
+  var w=92,h=58;
   if(port==='l')return{x:n.x,y:n.y+h/2};
   if(port==='r')return{x:n.x+w,y:n.y+h/2};
   if(port==='t')return{x:n.x+w/2,y:n.y};
