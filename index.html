@@ -192,6 +192,54 @@
         <label><span>CP efficiency</span><div><input id="dCpEff" type="number" value="75" step="1"><b>%</b></div></label>
       </div>
     </article>
+
+    <article class="panel design-card">
+      <div class="panel-head"><div><span class="eyebrow">PLANT CONFIGURATION</span><h2>Duty, passes & stages</h2></div></div>
+      <div class="inspector-grid">
+        <label><span>Feed source</span><select id="dFeedSource"><option value="beachwell">Beach well</option><option value="open_sea">Open seawater intake</option><option value="brackish">Brackish groundwater</option><option value="surface">Surface water</option><option value="wastewater">Treated wastewater</option></select></label>
+        <label><span>Duty RO trains</span><input id="dDutyTrains" type="number" value="1" min="1" step="1"></label>
+        <label><span>Operating hours / day</span><div><input id="dOperatingHours" type="number" value="24" min="1" max="24" step="0.5"><b>h</b></div></label>
+        <label><span>Passes</span><select id="dPasses"><option value="1">1 Pass</option><option value="2">2 Passes</option></select></label>
+        <label><span>Stages / pass</span><select id="dStages"><option value="1">1 Stage</option><option value="2">2 Stages</option><option value="3">3 Stages</option></select></label>
+        <label><span>Target max average flux</span><div><input id="dFluxLimit" type="number" value="18" step="0.5"><b>LMH</b></div></label>
+      </div>
+    </article>
+
+    <article class="panel design-card">
+      <div class="panel-head"><div><span class="eyebrow">FEED QUALITY</span><h2>Pretreatment design basis</h2></div></div>
+      <div class="inspector-grid">
+        <label><span>Feed pH</span><input id="dPh" type="number" value="8.1" step="0.1"></label>
+        <label><span>SDI15</span><input id="dSdi" type="number" value="3" step="0.1"></label>
+        <label><span>Turbidity</span><div><input id="dTurbidity" type="number" value="0.5" step="0.1"><b>NTU</b></div></label>
+        <label><span>Feed conductivity</span><div><input id="dConductivity" type="number" value="54000" step="100"><b>µS/cm</b></div></label>
+        <label><span>Feed boron</span><div><input id="dBoron" type="number" value="4.5" step="0.1"><b>mg/L</b></div></label>
+        <label><span>Target product boron</span><div><input id="dProductBoron" type="number" value="0.5" step="0.1"><b>mg/L</b></div></label>
+      </div>
+    </article>
+
+    <article class="panel design-card">
+      <div class="panel-head"><div><span class="eyebrow">HYDRAULIC LOSSES</span><h2>Pressure & electrical allowances</h2></div></div>
+      <div class="inspector-grid">
+        <label><span>Feed piping loss</span><div><input id="dFeedLineLoss" type="number" value="0.8" step="0.1"><b>bar</b></div></label>
+        <label><span>Permeate backpressure</span><div><input id="dPermBackPressure" type="number" value="0.5" step="0.1"><b>bar</b></div></label>
+        <label><span>Motor efficiency</span><div><input id="dMotorEff" type="number" value="95" step="0.5"><b>%</b></div></label>
+        <label><span>VFD efficiency</span><div><input id="dVfdEff" type="number" value="97" step="0.5"><b>%</b></div></label>
+        <label><span>Membrane model</span><select id="dMembraneModel"><option value="generic_swro">Generic SWRO 400 ft²</option><option value="generic_bwro">Generic BWRO 400 ft²</option><option value="vendor">Vendor-specific / custom</option></select></label>
+        <label><span>Design note</span><input id="dDesignNote" type="text" value="" placeholder="Optional"></label>
+      </div>
+    </article>
+
+    <article class="panel design-card chemistry-card">
+      <div class="panel-head"><div><span class="eyebrow">WATER CHEMISTRY</span><h2>Scaling-screen inputs</h2></div><span class="mini-note">Used for completeness; full ionic projection still required</span></div>
+      <div class="inspector-grid chemistry-grid">
+        <label><span>Calcium, Ca²⁺</span><div><input id="dCa" type="number" value="420" step="1"><b>mg/L</b></div></label>
+        <label><span>Magnesium, Mg²⁺</span><div><input id="dMg" type="number" value="1320" step="1"><b>mg/L</b></div></label>
+        <label><span>Sulfate, SO₄²⁻</span><div><input id="dSo4" type="number" value="2700" step="10"><b>mg/L</b></div></label>
+        <label><span>Bicarbonate, HCO₃⁻</span><div><input id="dHco3" type="number" value="140" step="1"><b>mg/L</b></div></label>
+        <label><span>Silica, SiO₂</span><div><input id="dSilica" type="number" value="6" step="0.5"><b>mg/L</b></div></label>
+        <label><span>Iron, Fe</span><div><input id="dIron" type="number" value="0.02" step="0.01"><b>mg/L</b></div></label>
+      </div>
+    </article>
   </div>
 
   <div class="designer-canvas-shell static-canvas-shell">
@@ -241,37 +289,32 @@
           <button class="primary-btn full" id="runBalance">Check balance</button>
         </article>
 
-        <article class="panel">
-          <div class="panel-head"><div><span class="eyebrow">BALANCE MAP</span><h2>Measured flow relationships</h2></div></div>
-          <div class="fb-visual-canvas">
-            <svg class="fb-links" viewBox="0 0 980 390" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <marker id="fbBlueArrow" markerWidth="3" markerHeight="3" refX="2.8" refY="1.5" orient="auto"><path d="M0,0 L0,3 L3,1.5 z" fill="#5677d8"/></marker>
-                <marker id="fbOrangeArrow" markerWidth="3" markerHeight="3" refX="2.8" refY="1.5" orient="auto"><path d="M0,0 L0,3 L3,1.5 z" fill="#ea755f"/></marker>
-                <marker id="fbGreenArrow" markerWidth="3" markerHeight="3" refX="2.8" refY="1.5" orient="auto"><path d="M0,0 L0,3 L3,1.5 z" fill="#45b7a4"/></marker>
-              </defs>
-              <path class="fb-path feed" d="M100 190 H205" marker-end="url(#fbBlueArrow)"/>
-              <path class="fb-path feed" d="M260 170 V90 H365" marker-end="url(#fbBlueArrow)"/>
-              <path class="fb-path feed" d="M260 210 V300 H365" marker-end="url(#fbBlueArrow)"/>
-              <path class="fb-path feed" d="M475 90 H610" marker-end="url(#fbBlueArrow)"/>
-              <path class="fb-path feed" d="M475 300 H530" marker-end="url(#fbBlueArrow)"/>
-              <path class="fb-path feed" d="M640 300 H665 V130 H720" marker-end="url(#fbBlueArrow)"/>
-              <path class="fb-path product" d="M830 130 H930" marker-end="url(#fbGreenArrow)"/>
-              <path class="fb-path reject" d="M780 165 V270 H475 V300" marker-end="url(#fbOrangeArrow)"/>
-              <path class="fb-path reject" d="M420 335 V360 H900" marker-end="url(#fbOrangeArrow)"/>
-              <path class="fb-path reject" d="M805 165 V345 H900" marker-end="url(#fbOrangeArrow)"/>
-            </svg>
-
-            <button class="fb-node feed-node" data-fb-focus="fbFeed" style="left:25px;top:155px"><small>Total Feed</small><strong id="mapFeed">188</strong><span>m³/h</span></button>
-            <button class="fb-node split-node" data-fb-focus="fbHpp" style="left:205px;top:155px"><small>Split</small><strong>HPP / PX</strong><span>feed division</span></button>
-            <button class="fb-node" data-fb-focus="fbHpp" style="left:365px;top:55px"><small>HPP Branch</small><strong id="mapHpp">78</strong><span>m³/h</span></button>
-            <button class="fb-node px-node" data-fb-focus="fbLpIn" style="left:365px;top:265px"><small>PX</small><strong id="mapLpIn">110</strong><span>LP IN m³/h</span></button>
-            <button class="fb-node cp-node" data-fb-focus="fbHpOut" style="left:530px;top:265px"><small>CP / PX HP OUT</small><strong id="mapPxOut">110</strong><span>m³/h</span></button>
-            <button class="fb-node rofeed-node" data-fb-focus="fbRoFeed" style="left:610px;top:95px"><small>RO Feed Header</small><strong id="mapRoFeed">188</strong><span>m³/h</span></button>
-            <button class="fb-node ro-node" data-fb-focus="fbRoFeed" style="left:720px;top:95px"><small>RO Train</small><strong>Balance</strong><span>feed → product + reject</span></button>
-            <button class="fb-node product-node" data-fb-focus="fbPerm" style="left:860px;top:55px"><small>Permeate</small><strong id="mapPerm">50</strong><span>m³/h</span></button>
-            <button class="fb-node reject-node" data-fb-focus="fbHpIn" style="left:690px;top:260px"><small>PX HP IN</small><strong id="mapHpIn">110</strong><span>m³/h</span></button>
-            <button class="fb-node reject-node" data-fb-focus="fbDirect" style="left:830px;top:300px"><small>Direct Reject</small><strong id="mapDirect">28</strong><span>m³/h</span></button>
+        <article class="panel balance-canvas-panel">
+          <div class="panel-head balance-canvas-title">
+            <div><span class="eyebrow">BALANCE MAP</span><h2>Measured RO process flow</h2></div>
+            <div class="designer-tool-group">
+              <button class="designer-tool" id="fbArrangeLayout">✥ Arrange</button>
+              <button class="designer-tool save-layout-btn" id="fbSaveLayout">✓ Save layout</button>
+              <button class="designer-tool" id="fbResetLayout">↺ Reset</button>
+              <span class="layout-status" id="fbLayoutStatus">Layout editing</span>
+            </div>
+          </div>
+          <div class="balance-canvas-toolbar">
+            <label class="designer-toggle"><input id="fbShowValues" type="checkbox" checked><span></span>Stream values</label>
+            <small>Move equipment, value boxes, line routes and arrow positions exactly like the Design tab.</small>
+          </div>
+          <div class="designer-canvas-shell balance-design-canvas-shell">
+            <div class="designer-canvas-head">
+              <div><b>RO Flow Balance</b><small>Measured values · save your preferred arrangement</small></div>
+              <div class="canvas-legend"><span class="feed-line-key"></span>Feed / HP <span class="reject-line-key"></span>Reject <span class="product-line-key"></span>Product</div>
+            </div>
+            <div class="designer-canvas balance-designer-canvas" id="balanceCanvas">
+              <div class="design-stage" id="balanceStage">
+                <svg id="balanceLinks" class="design-links" aria-hidden="true"></svg>
+                <div id="balanceNodes"></div>
+                <div id="balanceStreamLabels"></div>
+              </div>
+            </div>
           </div>
         </article>
       </div>
@@ -320,5 +363,6 @@
 </div>
 <script src="app.js"></script>
 <script src="design.js"></script>
+<script src="balance-layout.js"></script>
 </body>
 </html>
