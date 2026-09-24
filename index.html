@@ -351,6 +351,50 @@
           <div id="alarmResults" class="ts-alarm-summary"></div>
         </aside>
       </div>
+
+      <section class="ts-ai-shell">
+        <div class="ts-ai-head">
+          <div class="ts-ai-title">
+            <span class="ts-ai-orb">AI</span>
+            <div>
+              <span class="ts-kicker">AI TROUBLESHOOTING ASSISTANT</span>
+              <h2>Engineering Assistant</h2>
+              <p>Uses the selected symptom, current operating values, alarm thresholds and latest flow-balance result as context.</p>
+            </div>
+          </div>
+          <span class="ts-status-pill info" id="aiContextStatus">Context linked</span>
+        </div>
+
+        <div class="ts-ai-body">
+          <div class="ts-ai-context">
+            <div class="ts-section-label">CURRENT CONTEXT</div>
+            <div id="aiContextChips" class="ts-ai-chips"></div>
+            <div class="ts-ai-suggestions">
+              <button type="button" data-ai-prompt="summarize">Summarize likely cause</button>
+              <button type="button" data-ai-prompt="verify">What should I verify first?</button>
+              <button type="button" data-ai-prompt="px">Could this be a PX problem?</button>
+              <button type="button" data-ai-prompt="action">Recommended next action</button>
+            </div>
+          </div>
+
+          <div class="ts-ai-chat">
+            <div id="aiConversation" class="ts-ai-conversation" aria-live="polite">
+              <div class="ai-message assistant">
+                <span class="ai-avatar">AI</span>
+                <div>
+                  <b>RO Engineering Assistant</b>
+                  <p>Select a symptom and observation above, then ask a question. I will use the active diagnostic path and current process values rather than making an equipment-fault assumption.</p>
+                </div>
+              </div>
+            </div>
+            <div class="ts-ai-compose">
+              <input id="aiQuestion" type="text" placeholder="Ask about the selected RO fault, trend or flow balance…" autocomplete="off">
+              <button type="button" id="askAiBtn">Ask AI</button>
+            </div>
+            <div class="ts-ai-note">Current build: engineering assistant is grounded in the portal's diagnostic rules and live calculations. It does not invent sensor history that has not been entered.</div>
+          </div>
+        </div>
+      </section>
     </div>
 
     <div id="trouble-balance" class="trouble-pane">
@@ -430,11 +474,15 @@
       <div id="measuredBalanceResults" class="fb-check-grid"></div>
 
       <div class="ts-card fb-conclusion-card">
-        <div class="ts-card-head"><div><span class="ts-kicker">DIAGNOSTIC CONCLUSION</span><h2>What the balance means</h2></div></div>
+        <div class="ts-card-head">
+          <div><span class="ts-kicker">DIAGNOSTIC CONCLUSION</span><h2>What the balance means</h2></div>
+          <button type="button" class="ts-mini-btn" id="askAiBalance">Ask AI to interpret</button>
+        </div>
         <div id="flowBalanceConclusion" class="fb-conclusion">
           <div class="fb-conclusion-icon good">✓</div>
           <div><b>All entered balances are within tolerance.</b><p>The measurement set is internally consistent. If a hydraulic symptom remains, continue with pressure, valve, pump and PX checks.</p></div>
         </div>
+        <div id="flowAiInterpretation" class="fb-ai-interpretation hidden"></div>
       </div>
     </div>
   </section>
